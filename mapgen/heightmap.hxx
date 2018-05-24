@@ -11,13 +11,14 @@ class HeightmapMapgen: public IMapgen {
 public:
 	QubeType const air = 0;
 	QubeType const solid = 1;
-	HeightmapFn const h;
+	HeightmapFn const f;
 
 	/// Creates a map generator.
-	/// @param _h Should return the height map, point by point.
+	/// @param _f Should return the height map, point by point.
 	/// @param _solid Qube to use to fill the terrain body. Is placed everywhere
-	/// below the level @p _h returns.
-	HeightmapMapgen(HeightmapFn _h, QubeType _solid = 1);
+	/// below the level @p _f returns.
+	HeightmapMapgen(HeightmapFn _f, QubeType _solid = 1);
+
 	Block generate(BlockPosition block_pos) override;
 private:
 };
