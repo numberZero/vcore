@@ -3,6 +3,7 @@
 #include <glm/integer.hpp>
 
 static constexpr int block_size = 30;
+static constexpr int block_border = 1;
 static constexpr int block_size_pow2 = 32;
 
 typedef std::uint16_t QubeType;
