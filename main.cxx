@@ -1,5 +1,5 @@
 #include <cstdio>
-#include <GL/gl.h>
+#include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include "map/manager.hxx"
 #include "mapgen/heightmap.hxx"
@@ -19,13 +19,17 @@ int main(int argc, char **argv) {
 	}
 
 	glfwMakeContextCurrent(window);
+	gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
+
 	glClearColor(0.2, 0.1, 0.3, 1.0);
+
 	while (!glfwWindowShouldClose(window)) {
 		glClear(GL_COLOR_BUFFER_BIT);
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
 
+	glfwDestroyWindow(window);
 	glfwTerminate();
 	return 0;
 }

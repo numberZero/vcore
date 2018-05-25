@@ -9,12 +9,17 @@ find_package(GLM REQUIRED)
 add_executable(vcore
 	main.cxx
 	mapgen/heightmap.cxx
+	glad/glad.c
 )
 
 target_include_directories(vcore PUBLIC ${CMAKE_SOURCE_DIR})
 
+target_compile_definitions(vcore PUBLIC
+	GLFW_INCLUDE_NONE
+)
+
 target_link_libraries(vcore PUBLIC
 	GLFW
 	GLM
-	GL
+	${CMAKE_DL_LIBS}
 )
