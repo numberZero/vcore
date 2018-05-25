@@ -5,7 +5,7 @@
 #include "mapgen/heightmap.hxx"
 
 int main(int argc, char **argv) {
-	GLFWwindow* window;
+	GLFWwindow *window;
 	if (!glfwInit()) {
 		fprintf(stderr, "Can't initialize GLFW");
 		return -1;
@@ -19,7 +19,12 @@ int main(int argc, char **argv) {
 	}
 
 	glfwMakeContextCurrent(window);
-	gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
+	if (!gladLoadGLLoader((GLADloadproc) glfwGetProcAddress)) {
+		fprintf(stderr, "Can't load OpenGL extensions");
+		glfwDestroyWindow(window);
+		glfwTerminate();
+		return -1;
+	}
 
 	glClearColor(0.2, 0.1, 0.3, 1.0);
 
