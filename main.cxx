@@ -1,29 +1,28 @@
 #include <cstdio>
+#include <cstdlib>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include "map/manager.hxx"
 #include "mapgen/heightmap.hxx"
 
 int main(int argc, char **argv) {
+	int result = EXIT_FAILURE;
 	GLFWwindow *window;
 	if (!glfwInit()) {
 		fprintf(stderr, "Can't initialize GLFW");
-		return -1;
+		goto err_early;
 	}
 
 	window = glfwCreateWindow(800, 600, "V_CORE", NULL, NULL);
 	if (!window) {
 		fprintf(stderr, "Can't create window");
-		glfwTerminate();
-		return -1;
+		goto err_after_glfw;
 	}
 
 	glfwMakeContextCurrent(window);
 	if (!gladLoadGLLoader((GLADloadproc) glfwGetProcAddress)) {
 		fprintf(stderr, "Can't load OpenGL extensions");
-		glfwDestroyWindow(window);
-		glfwTerminate();
-		return -1;
+		goto err_after_window;
 	}
 
 	glClearColor(0.2, 0.1, 0.3, 1.0);
@@ -34,7 +33,11 @@ int main(int argc, char **argv) {
 		glfwPollEvents();
 	}
 
+	result = EXIT_SUCCESS;
+err_after_window:
 	glfwDestroyWindow(window);
+err_after_glfw:
 	glfwTerminate();
-	return 0;
+err_early:
+	return result;
 }
