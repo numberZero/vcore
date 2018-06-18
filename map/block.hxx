@@ -32,7 +32,7 @@ struct Block {
 		x += block_border;
 		y += block_border;
 		z += block_border;
-		return x + block_data_size * (y + block_data_size * z);
+		return x + block_size_pow2 * (y + block_size_pow2 * z);
 	}
 
 	static int index(int x, int y, int z) {
