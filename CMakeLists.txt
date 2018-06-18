@@ -9,6 +9,7 @@ find_package(GLM REQUIRED)
 add_executable(vcore
 	main.cxx
 	mapgen/heightmap.cxx
+	util/perlin.cxx
 	glad/glad.c
 )
 
