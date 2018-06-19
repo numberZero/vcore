@@ -6,11 +6,16 @@ project(vcore)
 find_package(GLFW REQUIRED)
 find_package(GLM REQUIRED)
 
+add_library(GLXX IMPORTED STATIC)
+set_target_properties(GLXX PROPERTIES
+	IMPORTED_LOCATION "${CMAKE_SOURCE_DIR}/../gl++/build/libgl++.a"
+	INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/../"
+)
+
 add_executable(vcore
 	main.cxx
 	mapgen/heightmap.cxx
 	util/perlin.cxx
-	glad/glad.c
 )
 
 target_include_directories(vcore PUBLIC ${CMAKE_SOURCE_DIR})
@@ -22,5 +27,6 @@ target_compile_definitions(vcore PUBLIC
 target_link_libraries(vcore PUBLIC
 	GLFW
 	GLM
+	GLXX
 	${CMAKE_DL_LIBS}
 )

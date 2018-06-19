@@ -1,18 +1,20 @@
 #include <cstdio>
 #include <cstdlib>
 #include <typeinfo>
-#include <glad/glad.h>
+#include <gl++/c.hxx>
 #include <GLFW/glfw3.h>
 #include "map/manager.hxx"
 #include "mapgen/heightmap.hxx"
 
+using namespace gl;
+
 static GLFWwindow *window = nullptr;
 
 void run() {
-	glClearColor(0.2, 0.1, 0.3, 1.0);
+	fn.ClearColor(0.2, 0.1, 0.3, 1.0);
 
 	while (!glfwWindowShouldClose(window)) {
-		glClear(GL_COLOR_BUFFER_BIT);
+		fn.Clear(GL_COLOR_BUFFER_BIT);
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
@@ -32,10 +34,7 @@ int main(int argc, char **argv) {
 	}
 
 	glfwMakeContextCurrent(window);
-	if (!gladLoadGLLoader((GLADloadproc) glfwGetProcAddress)) {
-		fprintf(stderr, "Can't load OpenGL extensions");
-		goto err_after_window;
-	}
+	loadAll(glfwGetProcAddress);
 
 	try {
 		run();
