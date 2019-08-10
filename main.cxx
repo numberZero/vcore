@@ -5,8 +5,7 @@
 #include <fmt/printf.h>
 #include <gl++/c.hxx>
 #include <GLFW/glfw3.h>
-#include "map/manager.hxx"
-#include "mapgen/heightmap.hxx"
+#include "mapgen/minetest/v6/mapgen_v6.hxx"
 
 using namespace gl;
 
@@ -75,8 +74,55 @@ unsigned link_program(std::vector<unsigned> shaders, bool delete_shaders = true)
 }
 
 void run() {
-	HeightmapMapgen mapgen(heightmap);
-	Block block1 = mapgen.generate({0, 0, 0});
+	MapgenV6Params params;
+	params.np_terrain_base.seed = 1;
+	params.np_terrain_higher.seed = 2;
+	params.np_steepness.seed = 3;
+	params.np_height_select.seed = 4;
+	params.np_mud.seed = 5;
+	params.np_beach.seed = 6;
+	params.np_biome.seed = 7;
+	params.np_cave.seed = 8;
+	params.np_humidity.seed = 9;
+	params.np_trees.seed = 10;
+	params.np_apple_trees.seed = 11;
+	MapV6Params map_params;
+	map_params.stone = 1;
+	map_params.dirt = 2;
+	map_params.dirt_with_grass = 3;
+	map_params.sand = 4;
+	map_params.water_source = 5;
+	map_params.lava_source = 6;
+	map_params.gravel = 7;
+	map_params.desert_stone = 8;
+	map_params.desert_sand = 9;
+	map_params.dirt_with_snow = 10;
+	map_params.snow = 11;
+	map_params.snowblock = 12;
+	map_params.ice = 13;
+	map_params.cobble = 14;
+	map_params.mossycobble = 15;
+	map_params.stair_cobble = 16;
+	map_params.stair_desert_stone = 17;
+	MapgenV6 mapgen(&params, map_params);
+
+	fmt::print("Ground level: {}\n", mapgen.getGroundLevelAtPoint({0, 0}));
+	fmt::print("Spawn level: {}\n", mapgen.getSpawnLevelAtPoint({0, 0}));
+
+	MMVManip mapfrag({-3, -3, -3}, {3, 3, 3});
+	BlockMakeData bmd;
+	bmd.seed = 666;
+	bmd.vmanip = &mapfrag;
+	bmd.blockpos_min = {-2, -2, -2};
+	bmd.blockpos_max = {2, 2, 2};
+	mapgen.makeChunk(&bmd);
+
+	for (int y = -31; y < 48; y++) {
+		for (int x = -31; x < 48; x++) {
+			fmt::print("{:2}", mapfrag.get({x, y, 0}).content);
+		}
+		fmt::print("\n");
+	}
 
 	Vertex vertices[32][4];
 	std::uint16_t indices[32][6];

@@ -29,5 +29,8 @@ target_link_libraries(vcore PUBLIC
 	GLFW
 	GLM
 	GLXX
+	mapgen_minetest_v6
 	${CMAKE_DL_LIBS}
 )
+
+add_subdirectory(mapgen/minetest/)
