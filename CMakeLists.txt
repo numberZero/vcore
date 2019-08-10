@@ -25,6 +25,7 @@ target_compile_definitions(vcore PUBLIC
 )
 
 target_link_libraries(vcore PUBLIC
+	fmt
 	GLFW
 	GLM
 	GLXX

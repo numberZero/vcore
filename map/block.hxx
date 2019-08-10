@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <stdexcept>
 #include <glm/integer.hpp>
+#include <glm/vec3.hpp>
 
 static constexpr int block_size = 30;
 static constexpr int block_border = 1;
