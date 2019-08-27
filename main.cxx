@@ -79,21 +79,15 @@ unsigned link_program(std::vector<unsigned> shaders, bool delete_shaders = true)
 
 struct Mesh {
 	std::vector<Vertex> vertices;
-	std::vector<Index> indices;
 };
 
 Mesh make_mesh(MMVManip &mapfrag, glm::ivec3 blockpos) {
 	Mesh result;
 	glm::ivec3 base = 16 * blockpos;
-	auto add_vertex = [&] (glm::ivec3 pos, glm::vec3 color) -> Index {
+	auto add_vertex = [&] (glm::ivec3 pos, glm::vec3 color) -> void {
 		result.vertices.push_back({pos, color});
-		return result.vertices.size() - 1;
 	};
-	auto add_index = [&] (Index i) -> void {
-		result.indices.push_back(i);
-	};
-	result.vertices.reserve(17 * 17 * 17);
-	result.indices.reserve(3 * 6 * 16 * 16 * 17);
+	result.vertices.reserve(4 * 3 * 16 * 16 * 17);
 
 	for (glm::ivec3 pos: space_range{base, base + glm::ivec3{16, 16, 16}}) {
 		glm::ivec3 mpos = {pos.x, pos.z, pos.y};
@@ -103,72 +97,41 @@ Mesh make_mesh(MMVManip &mapfrag, glm::ivec3 blockpos) {
 			continue;
 		content_t up = mapfrag.get(mpos + glm::ivec3{0, 1, 0}).content;
 		if (up == CONTENT_AIR) {
-			Index a = add_vertex(pos + glm::ivec3{0, 0, 1}, {0.1f, 0.3f, 0.0f});
-			Index b = add_vertex(pos + glm::ivec3{1, 0, 1}, {0.0f, 0.4f, 0.0f});
-			Index d = add_vertex(pos + glm::ivec3{1, 1, 1}, {0.1f, 0.3f, 0.0f});
-			Index c = add_vertex(pos + glm::ivec3{0, 1, 1}, {0.0f, 0.4f, 0.0f});
-			add_index(a);
-			add_index(b);
-			add_index(c);
-			add_index(d);
-			add_index(b);
-			add_index(c);
+			add_vertex(pos + glm::ivec3{0, 0, 1}, {0.1f, 0.3f, 0.0f});
+			add_vertex(pos + glm::ivec3{1, 0, 1}, {0.0f, 0.4f, 0.0f});
+			add_vertex(pos + glm::ivec3{1, 1, 1}, {0.1f, 0.3f, 0.0f});
+			add_vertex(pos + glm::ivec3{0, 1, 1}, {0.0f, 0.4f, 0.0f});
 		}
-		content_t front = mapfrag.get(mpos + glm::ivec3{-1, 0, 0}).content;
-		if (front == CONTENT_AIR) {
-			Index a = add_vertex(pos + glm::ivec3{0, 0, 0}, {0.0f, 0.0f, 0.0f});
-			Index b = add_vertex(pos + glm::ivec3{0, 1, 0}, {0.0f, 0.0f, 0.0f});
-			Index d = add_vertex(pos + glm::ivec3{0, 1, 1}, {0.0f, 0.0f, 1.0f});
-			Index c = add_vertex(pos + glm::ivec3{0, 0, 1}, {0.0f, 0.0f, 1.0f});
-			add_index(a);
-			add_index(b);
-			add_index(c);
-			add_index(d);
-			add_index(b);
-			add_index(c);
-		}
-		content_t left = mapfrag.get(mpos + glm::ivec3{0, 0, -1}).content;
+		content_t left = mapfrag.get(mpos + glm::ivec3{-1, 0, 0}).content;
 		if (left == CONTENT_AIR) {
-			Index a = add_vertex(pos + glm::ivec3{0, 0, 0}, {0.0f, 0.0f, 0.0f});
-			Index b = add_vertex(pos + glm::ivec3{1, 0, 0}, {0.0f, 0.0f, 0.0f});
-			Index d = add_vertex(pos + glm::ivec3{1, 0, 1}, {0.0f, 0.0f, 1.0f});
-			Index c = add_vertex(pos + glm::ivec3{0, 0, 1}, {0.0f, 0.0f, 1.0f});
-			add_index(a);
-			add_index(b);
-			add_index(c);
-			add_index(d);
-			add_index(b);
-			add_index(c);
+			add_vertex(pos + glm::ivec3{0, 0, 0}, {0.0f, 0.0f, 0.0f});
+			add_vertex(pos + glm::ivec3{0, 0, 1}, {0.0f, 0.0f, 1.0f});
+			add_vertex(pos + glm::ivec3{0, 1, 1}, {0.0f, 0.0f, 1.0f});
+			add_vertex(pos + glm::ivec3{0, 1, 0}, {0.0f, 0.0f, 0.0f});
 		}
-		content_t back = mapfrag.get(mpos + glm::ivec3{1, 0, 0}).content;
-		if (back == CONTENT_AIR) {
-			Index a = add_vertex(pos + glm::ivec3{1, 0, 0}, {0.0f, 0.0f, 0.0f});
-			Index b = add_vertex(pos + glm::ivec3{1, 1, 0}, {0.0f, 0.0f, 0.0f});
-			Index d = add_vertex(pos + glm::ivec3{1, 1, 1}, {0.0f, 0.0f, 1.0f});
-			Index c = add_vertex(pos + glm::ivec3{1, 0, 1}, {0.0f, 0.0f, 1.0f});
-			add_index(a);
-			add_index(b);
-			add_index(c);
-			add_index(d);
-			add_index(b);
-			add_index(c);
+		content_t front = mapfrag.get(mpos + glm::ivec3{0, 0, -1}).content;
+		if (front == CONTENT_AIR) {
+			add_vertex(pos + glm::ivec3{0, 0, 0}, {0.0f, 0.0f, 0.0f});
+			add_vertex(pos + glm::ivec3{1, 0, 0}, {0.0f, 0.0f, 0.0f});
+			add_vertex(pos + glm::ivec3{1, 0, 1}, {0.0f, 0.0f, 1.0f});
+			add_vertex(pos + glm::ivec3{0, 0, 1}, {0.0f, 0.0f, 1.0f});
 		}
-		content_t right = mapfrag.get(mpos + glm::ivec3{0, 0, 1}).content;
+		content_t right = mapfrag.get(mpos + glm::ivec3{1, 0, 0}).content;
 		if (right == CONTENT_AIR) {
-			Index a = add_vertex(pos + glm::ivec3{0, 1, 0}, {0.0f, 0.0f, 0.0f});
-			Index b = add_vertex(pos + glm::ivec3{1, 1, 0}, {0.0f, 0.0f, 0.0f});
-			Index d = add_vertex(pos + glm::ivec3{1, 1, 1}, {0.0f, 0.0f, 1.0f});
-			Index c = add_vertex(pos + glm::ivec3{0, 1, 1}, {0.0f, 0.0f, 1.0f});
-			add_index(a);
-			add_index(b);
-			add_index(c);
-			add_index(d);
-			add_index(b);
-			add_index(c);
+			add_vertex(pos + glm::ivec3{1, 0, 0}, {0.0f, 0.0f, 0.0f});
+			add_vertex(pos + glm::ivec3{1, 1, 0}, {0.0f, 0.0f, 0.0f});
+			add_vertex(pos + glm::ivec3{1, 1, 1}, {0.0f, 0.0f, 1.0f});
+			add_vertex(pos + glm::ivec3{1, 0, 1}, {0.0f, 0.0f, 1.0f});
+		}
+		content_t back = mapfrag.get(mpos + glm::ivec3{0, 0, 1}).content;
+		if (back == CONTENT_AIR) {
+			add_vertex(pos + glm::ivec3{0, 1, 0}, {0.0f, 0.0f, 0.0f});
+			add_vertex(pos + glm::ivec3{0, 1, 1}, {0.0f, 0.0f, 1.0f});
+			add_vertex(pos + glm::ivec3{1, 1, 1}, {0.0f, 0.0f, 1.0f});
+			add_vertex(pos + glm::ivec3{1, 1, 0}, {0.0f, 0.0f, 0.0f});
 		}
 	}
 	result.vertices.shrink_to_fit();
-	result.indices.shrink_to_fit();
 	return result;
 }
 
@@ -293,6 +256,7 @@ void main() {
 		glm::mat4 m_render = m_proj * m_view;
 		fn.Enable(GL_DEPTH);
 		fn.Enable(GL_DEPTH_TEST);
+		fn.Enable(GL_CULL_FACE);
 		fn.Clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		fn.UniformMatrix4fv(m_location, 1, GL_FALSE, &m_render[0][0]);
 		fn.UseProgram(prog);
@@ -302,8 +266,6 @@ void main() {
 			fn.VertexAttribPointer(p_location, 3, GL_FLOAT, false, sizeof(Vertex), &mesh.vertices[0].position);
 			fn.VertexAttribPointer(c_location, 3, GL_FLOAT, false, sizeof(Vertex), &mesh.vertices[0].color);
 			fn.DrawArrays(GL_QUADS, 0, mesh.vertices.size());
-// 			fn.DrawElements(GL_TRIANGLES, mesh.indices.size(), GL_UNSIGNED_SHORT, mesh.indices.data());
-// 			fn.DrawRangeElements(GL_TRIANGLES, 0, mesh.vertices.size() - 1, mesh.indices.size(), GL_UNSIGNED_SHORT, mesh.indices.data());
 		}
 		glfwSwapBuffers(window);
 		glfwPollEvents();
