@@ -129,88 +129,6 @@ Mapgen::Mapgen(int mapgenid, MapgenParams *params, EmergeManager *emerge)/* :
 // 	ndef      = emerge->ndef;
 }
 
-/*
-MapgenType Mapgen::getMapgenType(const std::string &mgname)
-{
-	for (size_t i = 0; i != ARRLEN(g_reg_mapgens); i++) {
-		if (mgname == g_reg_mapgens[i].name)
-			return (MapgenType)i;
-	}
-
-	return MAPGEN_INVALID;
-}
-
-
-const char *Mapgen::getMapgenName(MapgenType mgtype)
-{
-	size_t index = (size_t)mgtype;
-	if (index == MAPGEN_INVALID || index >= ARRLEN(g_reg_mapgens))
-		return "invalid";
-
-	return g_reg_mapgens[index].name;
-}
-
-
-Mapgen *Mapgen::createMapgen(MapgenType mgtype, MapgenParams *params,
-	EmergeManager *emerge)
-{
-	switch (mgtype) {
-	case MAPGEN_CARPATHIAN:
-		return new MapgenCarpathian((MapgenCarpathianParams *)params, emerge);
-	case MAPGEN_FLAT:
-		return new MapgenFlat((MapgenFlatParams *)params, emerge);
-	case MAPGEN_FRACTAL:
-		return new MapgenFractal((MapgenFractalParams *)params, emerge);
-	case MAPGEN_SINGLENODE:
-		return new MapgenSinglenode((MapgenSinglenodeParams *)params, emerge);
-	case MAPGEN_V5:
-		return new MapgenV5((MapgenV5Params *)params, emerge);
-	case MAPGEN_V6:
-		return new MapgenV6((MapgenV6Params *)params, emerge);
-	case MAPGEN_V7:
-		return new MapgenV7((MapgenV7Params *)params, emerge);
-	case MAPGEN_VALLEYS:
-		return new MapgenValleys((MapgenValleysParams *)params, emerge);
-	default:
-		return nullptr;
-	}
-}
-
-
-MapgenParams *Mapgen::createMapgenParams(MapgenType mgtype)
-{
-	switch (mgtype) {
-	case MAPGEN_CARPATHIAN:
-		return new MapgenCarpathianParams;
-	case MAPGEN_FLAT:
-		return new MapgenFlatParams;
-	case MAPGEN_FRACTAL:
-		return new MapgenFractalParams;
-	case MAPGEN_SINGLENODE:
-		return new MapgenSinglenodeParams;
-	case MAPGEN_V5:
-		return new MapgenV5Params;
-	case MAPGEN_V6:
-		return new MapgenV6Params;
-	case MAPGEN_V7:
-		return new MapgenV7Params;
-	case MAPGEN_VALLEYS:
-		return new MapgenValleysParams;
-	default:
-		return nullptr;
-	}
-}
-
-
-void Mapgen::getMapgenNames(std::vector<const char *> *mgnames, bool include_hidden)
-{
-	for (u32 i = 0; i != ARRLEN(g_reg_mapgens); i++) {
-		if (include_hidden || g_reg_mapgens[i].is_user_visible)
-			mgnames->push_back(g_reg_mapgens[i].name);
-	}
-}
-
-*/
 u32 Mapgen::getBlockSeed(v3s16 p, s32 seed)
 {
 	return (u32)seed   +
@@ -234,7 +152,7 @@ s16 Mapgen::findGroundLevelFull(v2s16 p2d)
 	s16 y_nodes_max = vm->MaxEdge.y;
 	s16 y_nodes_min = vm->MinEdge.y;
 	for (int y = y_nodes_max; y >= y_nodes_min; y--) {
-		MapNode &n = vm->get({p2d.x, y, p2d.y});
+		MapNode const &n = vm->get_r({p2d.x, y, p2d.y});
 		if (is_walkable(n.content))
 			return y;
 	}
@@ -246,7 +164,7 @@ s16 Mapgen::findGroundLevelFull(v2s16 p2d)
 s16 Mapgen::findGroundLevel(v2s16 p2d, s16 ymin, s16 ymax)
 {
 	for (int y = ymax; y >= ymin; y--) {
-		MapNode &n = vm->get({p2d.x, y, p2d.y});
+		MapNode const &n = vm->get_r({p2d.x, y, p2d.y});
 		if (is_walkable(n.content))
 			return y;
 	}

@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.0)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
+set(CMAKE_CXX_STANDARD 17)
 
 project(vcore)
 
@@ -14,8 +15,10 @@ set_target_properties(GLXX PROPERTIES
 
 add_executable(vcore
 	main.cxx
+	map/map.cxx
 	mapgen/heightmap.cxx
-	util/perlin.cxx
+	util/io.cxx
+# 	util/perlin.cxx
 )
 
 target_include_directories(vcore PUBLIC ${CMAKE_SOURCE_DIR})
@@ -30,7 +33,9 @@ target_link_libraries(vcore PUBLIC
 	GLM
 	GLXX
 	mapgen_minetest_v6
+	stdc++fs
 	${CMAKE_DL_LIBS}
 )
 
 add_subdirectory(mapgen/minetest/)
+add_subdirectory(test/)

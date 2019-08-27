@@ -18,7 +18,52 @@ inline static std::pair<long, unsigned> divrem(long num, unsigned den) {
 	if (num >= 0)
 		return {num / den, num % den};
 	else
-		return {num / den - 1, num % den + den};
+		return {(num + 1) / den - 1, (num + 1) % den + den - 1};
+}
+
+struct space_range {
+	glm::ivec3 const a;
+	glm::ivec3 const b;
+};
+
+struct space_iterator {
+	space_range const &range;
+	glm::ivec3 p;
+
+	space_iterator &operator++ () {
+		if (++p.x != range.b.x)
+			return *this;
+		p.x = range.a.x;
+		if (++p.y != range.b.y)
+			return *this;
+		p.y = range.a.y;
+		if (++p.z != range.b.z)
+			return *this;
+		p = range.b;
+		return *this;
+	}
+
+	glm::ivec3 operator* () const {
+		return p;
+	}
+
+	bool operator== (space_iterator const &b) {
+		assert(&range == &b.range);
+		return p == b.p;
+	}
+
+	bool operator!= (space_iterator const &b) {
+		assert(&range == &b.range);
+		return p != b.p;
+	}
+};
+
+space_iterator begin(space_range const &range) {
+	return {range, range.a};
+}
+
+space_iterator end(space_range const &range) {
+	return {range, range.b};
 }
 
 struct Qube {
@@ -28,7 +73,10 @@ struct Qube {
 };
 
 struct Block {
+	glm::ivec3 pos;
 	Qube qube[block_data_size];
+	mutable int rcounter = 0;
+	mutable int wcounter = 0;
 
 	static int index_unsafe(glm::ivec3 relative) noexcept {
 		return relative.x + MAP_BLOCKSIZE * (relative.y + MAP_BLOCKSIZE * relative.z);
@@ -67,18 +115,26 @@ public:
 class MMVManip {
 private:
 	std::vector<Block> blocks;
-	glm::ivec3 bstart;
-	glm::ivec3 bsize;
 
-	int index_unsafe(glm::ivec3 vblock) noexcept {
+public:
+	glm::ivec3 const bstart;
+	glm::ivec3 const bsize;
+
+	bool in_manip(glm::ivec3 vblock) const noexcept {
+		vblock -= bstart;
+		return
+			vblock.x >= 0 && vblock.x < bsize.x &&
+			vblock.y >= 0 && vblock.y < bsize.y &&
+			vblock.z >= 0 && vblock.z < bsize.z;
+	}
+
+	int index_unsafe(glm::ivec3 vblock) const noexcept {
 		return vblock.x - bstart.x + bsize.x * (vblock.y - bstart.y + bsize.y * (vblock.z - bstart.z));
 	}
 
-	int index(glm::ivec3 vblock) {
-// 		if (vblock.x < MinEdge.x || vblock.x > MaxEdge.x ||
-// 				vblock.y < MinEdge.y || vblock.y > MaxEdge.y ||
-// 				vblock.z < MinEdge.z || vblock.z > MaxEdge.z)
-// 			throw std::out_of_range("Block coordinates are out of MMVManip");
+	int index(glm::ivec3 vblock) const {
+		if (!in_manip(vblock))
+			throw std::out_of_range("Block coordinates are out of MMVManip");
 		return index_unsafe(vblock);
 	}
 
@@ -86,7 +142,18 @@ private:
 		return blocks[index(vblock)];
 	}
 
-public:
+	Block const &getBlock(glm::ivec3 vblock) const {
+		return blocks[index(vblock)];
+	}
+
+	std::pair<glm::ivec3, glm::ivec3> split(glm::ivec3 vqube) const noexcept {
+		glm::ivec3 vblock, rqube;
+		std::tie(vblock.x, rqube.x) = divrem(vqube.x, MAP_BLOCKSIZE);
+		std::tie(vblock.y, rqube.y) = divrem(vqube.y, MAP_BLOCKSIZE);
+		std::tie(vblock.z, rqube.z) = divrem(vqube.z, MAP_BLOCKSIZE);
+		return {vblock, rqube};
+	}
+
 	glm::ivec3 const MinEdge;
 	glm::ivec3 const MaxEdge;
 
@@ -97,14 +164,41 @@ public:
 		, MaxEdge(MAP_BLOCKSIZE * b + MAP_BLOCKSIZE - 1)
 	{
 		blocks.resize(bsize.x * bsize.y * bsize.z);
+		for (auto pos: space_range{a, b})
+			getBlock(pos).pos = pos;
 	}
 
-	Qube &get(glm::ivec3 vqube) {
-		glm::ivec3 vblock, rqube;
-		std::tie(vblock.x, rqube.x) = divrem(vqube.x, MAP_BLOCKSIZE);
-		std::tie(vblock.y, rqube.y) = divrem(vqube.y, MAP_BLOCKSIZE);
-		std::tie(vblock.z, rqube.z) = divrem(vqube.z, MAP_BLOCKSIZE);
+	bool in_area(glm::ivec3 vqube) {
+		auto [vblock, rqube] = split(vqube);
+		return in_manip(vblock);
+	}
+
+	Qube const &get(glm::ivec3 vqube) {
+		auto [vblock, rqube] = split(vqube);
 		return getBlock(vblock).qube[Block::index_unsafe(rqube)];
+	}
+
+	Qube get_r(glm::ivec3 vqube) const {
+		auto [vblock, rqube] = split(vqube);
+		auto &&block = getBlock(vblock);
+		++block.rcounter;
+		return block.qube[Block::index_unsafe(rqube)];
+	}
+
+	Qube &get_rw(glm::ivec3 vqube) {
+		auto [vblock, rqube] = split(vqube);
+		auto &&block = getBlock(vblock);
+		++block.wcounter;
+		return block.qube[Block::index_unsafe(rqube)];
+	}
+
+	Qube get_ign(glm::ivec3 vqube) {
+		auto [vblock, rqube] = split(vqube);
+		if (!in_manip(vblock))
+			return {CONTENT_IGNORE};
+		auto &&block = getBlock(vblock);
+		++block.rcounter;
+		return block.qube[Block::index_unsafe(rqube)];
 	}
 };
 
