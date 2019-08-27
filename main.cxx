@@ -9,6 +9,7 @@
 #include "mapgen/minetest/v6/mapgen_v6.hxx"
 
 #define GLM_ENABLE_EXPERIMENTAL
+#include "glm/gtx/euler_angles.hpp"
 #include "glm/gtx/hash.hpp"
 
 using namespace gl;
@@ -84,26 +85,10 @@ struct Mesh {
 Mesh make_mesh(MMVManip &mapfrag, glm::ivec3 blockpos) {
 	Mesh result;
 	glm::ivec3 base = 16 * blockpos;
-
-	std::unordered_map<glm::ivec3, Index> vertex_ids;
 	auto add_vertex = [&] (glm::ivec3 pos, glm::vec3 color) -> Index {
-// 		int u = pos.x - base.x;
-// 		int v = pos.y - base.y;
-// 		return u * 17 + v;
 		result.vertices.push_back({pos, color});
 		return result.vertices.size() - 1;
-// 		pos.z = 0;
-// 		auto [iter, added] = vertex_ids.emplace(pos, result.vertices.size());
-// 		if (added)
-// 			result.vertices.push_back({pos});
-// 		return iter->second;
 	};
-/*	for (int u = 0; u <= 16; ++u)
-		for (int v = 0; v <= 16; ++v) {
-			glm::ivec3 pos = {base.x + u, base.y + v, base.z};
-			result.vertices.push_back({pos});
-			vertex_ids[pos] = u * 17 + v;
-		}*/
 	auto add_index = [&] (Index i) -> void {
 		result.indices.push_back(i);
 	};
@@ -118,10 +103,10 @@ Mesh make_mesh(MMVManip &mapfrag, glm::ivec3 blockpos) {
 			continue;
 		content_t up = mapfrag.get(mpos + glm::ivec3{0, 1, 0}).content;
 		if (up == CONTENT_AIR) {
-			Index a = add_vertex(pos + glm::ivec3{0, 0, 1}, {0.2f, 0.2f, 0.2f});
-			Index b = add_vertex(pos + glm::ivec3{1, 0, 1}, {0.2f, 0.0f, 0.0f});
-			Index c = add_vertex(pos + glm::ivec3{0, 1, 1}, {0.0f, 0.2f, 0.0f});
-			Index d = add_vertex(pos + glm::ivec3{1, 1, 1}, {0.0f, 0.0f, 0.0f});
+			Index a = add_vertex(pos + glm::ivec3{0, 0, 1}, {0.1f, 0.3f, 0.0f});
+			Index b = add_vertex(pos + glm::ivec3{1, 0, 1}, {0.0f, 0.4f, 0.0f});
+			Index d = add_vertex(pos + glm::ivec3{1, 1, 1}, {0.1f, 0.3f, 0.0f});
+			Index c = add_vertex(pos + glm::ivec3{0, 1, 1}, {0.0f, 0.4f, 0.0f});
 			add_index(a);
 			add_index(b);
 			add_index(c);
@@ -133,8 +118,8 @@ Mesh make_mesh(MMVManip &mapfrag, glm::ivec3 blockpos) {
 		if (front == CONTENT_AIR) {
 			Index a = add_vertex(pos + glm::ivec3{0, 0, 0}, {0.0f, 0.0f, 0.0f});
 			Index b = add_vertex(pos + glm::ivec3{0, 1, 0}, {0.0f, 0.0f, 0.0f});
-			Index c = add_vertex(pos + glm::ivec3{0, 0, 1}, {0.0f, 0.0f, 1.0f});
 			Index d = add_vertex(pos + glm::ivec3{0, 1, 1}, {0.0f, 0.0f, 1.0f});
+			Index c = add_vertex(pos + glm::ivec3{0, 0, 1}, {0.0f, 0.0f, 1.0f});
 			add_index(a);
 			add_index(b);
 			add_index(c);
@@ -146,8 +131,8 @@ Mesh make_mesh(MMVManip &mapfrag, glm::ivec3 blockpos) {
 		if (left == CONTENT_AIR) {
 			Index a = add_vertex(pos + glm::ivec3{0, 0, 0}, {0.0f, 0.0f, 0.0f});
 			Index b = add_vertex(pos + glm::ivec3{1, 0, 0}, {0.0f, 0.0f, 0.0f});
-			Index c = add_vertex(pos + glm::ivec3{0, 0, 1}, {0.0f, 0.0f, 1.0f});
 			Index d = add_vertex(pos + glm::ivec3{1, 0, 1}, {0.0f, 0.0f, 1.0f});
+			Index c = add_vertex(pos + glm::ivec3{0, 0, 1}, {0.0f, 0.0f, 1.0f});
 			add_index(a);
 			add_index(b);
 			add_index(c);
@@ -159,8 +144,8 @@ Mesh make_mesh(MMVManip &mapfrag, glm::ivec3 blockpos) {
 		if (back == CONTENT_AIR) {
 			Index a = add_vertex(pos + glm::ivec3{1, 0, 0}, {0.0f, 0.0f, 0.0f});
 			Index b = add_vertex(pos + glm::ivec3{1, 1, 0}, {0.0f, 0.0f, 0.0f});
-			Index c = add_vertex(pos + glm::ivec3{1, 0, 1}, {0.0f, 0.0f, 1.0f});
 			Index d = add_vertex(pos + glm::ivec3{1, 1, 1}, {0.0f, 0.0f, 1.0f});
+			Index c = add_vertex(pos + glm::ivec3{1, 0, 1}, {0.0f, 0.0f, 1.0f});
 			add_index(a);
 			add_index(b);
 			add_index(c);
@@ -172,8 +157,8 @@ Mesh make_mesh(MMVManip &mapfrag, glm::ivec3 blockpos) {
 		if (right == CONTENT_AIR) {
 			Index a = add_vertex(pos + glm::ivec3{0, 1, 0}, {0.0f, 0.0f, 0.0f});
 			Index b = add_vertex(pos + glm::ivec3{1, 1, 0}, {0.0f, 0.0f, 0.0f});
-			Index c = add_vertex(pos + glm::ivec3{0, 1, 1}, {0.0f, 0.0f, 1.0f});
 			Index d = add_vertex(pos + glm::ivec3{1, 1, 1}, {0.0f, 0.0f, 1.0f});
+			Index c = add_vertex(pos + glm::ivec3{0, 1, 1}, {0.0f, 0.0f, 1.0f});
 			add_index(a);
 			add_index(b);
 			add_index(c);
@@ -186,6 +171,9 @@ Mesh make_mesh(MMVManip &mapfrag, glm::ivec3 blockpos) {
 	result.indices.shrink_to_fit();
 	return result;
 }
+
+static float yaw = 0.0f;
+static float pitch = 0.0f;
 
 void run() {
 	MapgenV6Params params;
@@ -230,37 +218,13 @@ void run() {
 	bmd.blockpos_min = {-2, -2, -2};
 	bmd.blockpos_max = {2, 2, 2};
 	mapgen.makeChunk(&bmd);
-/*
-	for (int y = -31; y < 48; y++) {
-		for (int x = -31; x < 48; x++) {
-			fmt::print("{:2}", mapfrag.get({x, y, 0}).content);
-		}
-		fmt::print("\n");
-	}
-
-	fmt::print("\n");
-	for (auto pos: space_range{mapfrag.bstart, mapfrag.bstart + mapfrag.bsize})
-		fmt::print("{:6}", mapfrag.getBlock(pos).rcounter);
-	fmt::print("\n");
-	fmt::print("\n");
-	for (auto pos: space_range{mapfrag.bstart, mapfrag.bstart + mapfrag.bsize})
-		fmt::print("{:6}", mapfrag.getBlock(pos).wcounter);
-	fmt::print("\n");
-*/
+	int level = mapgen.getSpawnLevelAtPoint({0, 0});
 
 	std::list<Mesh> meshes;
 	for (auto bp: space_range{{-2, -2, -2}, {3, 3, 3}})
 		meshes.push_back(make_mesh(mapfrag, bp));
-// 	meshes.push_back(make_mesh(mapfrag, {0, 0, 0}));
 
-	glm::mat4 const m_iso{
-		std::sqrt(3.f), 1.f, std::sqrt(2.f), 0.f,
-		-std::sqrt(3.f), 1.f, std::sqrt(2.f), 0.f,
-		0.f, 2.f, -std::sqrt(2.f), 0.f,
-		0.f, 0.f, 0.f, std::sqrt(6.f),
-	};
-
-	auto vert_shader = R"(#version 150
+	auto vert_shader = R"(#version 330
 uniform mat4 m;
 
 in vec3 position;
@@ -274,7 +238,7 @@ void main() {
 	gl_Position = m * vec4(position, 1.0);
 }
 )";
-	auto frag_shader = R"(#version 150
+	auto frag_shader = R"(#version 330
 in vec3 pos;
 in vec3 v_color;
 void main() {
@@ -288,8 +252,6 @@ void main() {
 	});
 	int p_location =  fn.GetAttribLocation(prog, "position");
 	int c_location =  fn.GetAttribLocation(prog, "color");
-// 	fn.BindAttribLocation(prog, 0, "position");
-// 	fn.BindAttribLocation(prog, 1, "color");
 	int m_location = fn.GetUniformLocation(prog, "m");
 
 	fn.ClearColor(0.2, 0.1, 0.3, 1.0);
@@ -297,66 +259,64 @@ void main() {
 	fn.GetIntegerv(GL_MAX_ELEMENTS_VERTICES, &max_v);
 	fn.GetIntegerv(GL_MAX_ELEMENTS_INDICES, &max_i);
 	fmt::printf("Vertex limit: %d\nIndex limit: %d\n", max_v, max_i);
-// 	unsigned buf;
-// 	fn.GenBuffers(1, &buf);
+
+	glm::vec3 pos{0.0f, 0.0f, level};
+	float t = glfwGetTime();
 
 	while (!glfwWindowShouldClose(window)) {
+		float t2 = glfwGetTime();
+		float dt = t2 - t;
+		t = t2;
 		int w, h;
 		glfwGetWindowSize(window, &w, &h);
 		fn.Viewport(0, 0, w, h);
+		glm::vec3 v{0.0f, 0.0f, 0.0f};
+		if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+			v.y += 1.0;
+		if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+			v.x -= 1.0;
+		if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+			v.y -= 1.0;
+		if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+			v.x += 1.0;
+		if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
+			v.z += 1.0;
+		if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
+			v.z -= 1.0;
+		pos += dt * 10.f * glm::orientate3(-yaw) * v;
 		float aspect = 1.f * w / h;
-		float v = .3f;
-		float c = std::cos(v * glfwGetTime());
-		float s = std::sin(v * glfwGetTime());
-		glm::mat4 m_pos{
-			1.f, 0.f, 0.f, 0.f,
-			0.f, 1.f, 0.f, 0.f,
-			0.f, 0.f, 1.f, 0.f,
-			0.f, 0.f, -15.f, 1.f,
-		};
-		glm::mat4 m_rot{
-			c, s, 0.f, 0.f,
-			-s, c, 0.f, 0.f,
-			0.f, 0.f, 1.f, 0.f,
-			0.f, 0.f, 0.f, 1.f,
-		};
-		glm::mat4 m_trans{
-			1.f, 0.f, 0.f, 0.f,
-			0.f, 1.f, 0.f, 0.f,
-			0.f, 0.f, 1.f, 0.f,
-			0.f, 0.f, -3.f, 1.f,
-		};
+		float eye_level = 1.75f;
+		glm::mat4 m_view = glm::translate(glm::eulerAngleXZ(pitch, yaw), -(pos + glm::vec3{0.0f, 0.0f, eye_level}));
 		glm::mat4 m_proj = glm::perspective(glm::radians(60.f), aspect, .1f, 100.f);
 		m_proj[2] = -m_proj[2];
-/*
-		for (int k = -10; k <= 10; k++) {
-			glm::vec4 v{1.0f, 1.0f, 1.0f * k, 1.0f};
-			v = m_proj * v;
-			fmt::printf("%.3f, %.3f, %.3f, %.3f; %.3f\n", v.x, v.y, v.z, v.w, v.z / v.w);
-		}
-		exit(0);
-*/
-		glm::mat4 m = m_proj * m_trans * m_iso * m_rot * m_pos;
+		std::swap(m_proj[1], m_proj[2]);
+		glm::mat4 m_render = m_proj * m_view;
 		fn.Enable(GL_DEPTH);
 		fn.Enable(GL_DEPTH_TEST);
 		fn.Clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		fn.UniformMatrix4fv(m_location, 1, GL_FALSE, &m[0][0]);
+		fn.UniformMatrix4fv(m_location, 1, GL_FALSE, &m_render[0][0]);
 		fn.UseProgram(prog);
-// 		fn.BindBuffer(GL_ARRAY_BUFFER, buf);
 		fn.EnableVertexAttribArray(0);
 		fn.EnableVertexAttribArray(1);
 		for (Mesh &mesh: meshes) {
-// 			fn.BufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * mesh.vertices.size(), mesh.vertices.data(), GL_STREAM_DRAW);
 			fn.VertexAttribPointer(p_location, 3, GL_FLOAT, false, sizeof(Vertex), &mesh.vertices[0].position);
 			fn.VertexAttribPointer(c_location, 3, GL_FLOAT, false, sizeof(Vertex), &mesh.vertices[0].color);
-// 			fn.VertexAttribPointer(p_location, 3, GL_FLOAT, false, sizeof(Vertex), (void*)offsetof(Vertex, position));
-// 			fn.VertexAttribPointer(c_location, 3, GL_FLOAT, false, sizeof(Vertex), (void*)offsetof(Vertex, color));
-			fn.DrawElements(GL_TRIANGLES, mesh.indices.size(), GL_UNSIGNED_SHORT, mesh.indices.data());
+			fn.DrawArrays(GL_QUADS, 0, mesh.vertices.size());
+// 			fn.DrawElements(GL_TRIANGLES, mesh.indices.size(), GL_UNSIGNED_SHORT, mesh.indices.data());
 // 			fn.DrawRangeElements(GL_TRIANGLES, 0, mesh.vertices.size() - 1, mesh.indices.size(), GL_UNSIGNED_SHORT, mesh.indices.data());
 		}
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
+}
+
+static void on_mouse_move(GLFWwindow *window, double xpos, double ypos) {
+	static double base_xpos = xpos;
+	static double base_ypos = ypos;
+	xpos -= base_xpos;
+	ypos -= base_ypos;
+	yaw = xpos * 1e-2;
+	pitch = ypos * 1e-2;
 }
 
 int main(int argc, char **argv) {
@@ -376,6 +336,9 @@ int main(int argc, char **argv) {
 		fprintf(stderr, "Can't create window");
 		goto err_after_glfw;
 	}
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+	glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+	glfwSetCursorPosCallback(window, on_mouse_move);
 
 	glfwMakeContextCurrent(window);
 	loadAll(glfwGetProcAddress);
