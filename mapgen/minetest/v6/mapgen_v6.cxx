@@ -481,8 +481,8 @@ void MapgenV6::makeChunk(BlockMakeData *data)
 		addMud();
 
 		// Flow mud away from steep edges
-		if (spflags & MGV6_MUDFLOW)
-			flowMud(mudflow_minpos, mudflow_maxpos);
+// 		if (spflags & MGV6_MUDFLOW)
+// 			flowMud(mudflow_minpos, mudflow_maxpos);
 
 	}
 

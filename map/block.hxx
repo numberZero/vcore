@@ -1,44 +1,29 @@
 #pragma once
 #include <cstdint>
-#include <stdexcept>
-#include <glm/integer.hpp>
 #include <glm/vec3.hpp>
 
-static constexpr int block_size = 30;
-static constexpr int block_border = 1;
-static constexpr int block_size_pow2 = 32;
-static constexpr int block_data_size = block_size_pow2 * block_size_pow2 * block_size_pow2;
+using qube_type = std::uint16_t;
+using qube_pos_t = glm::ivec3;
+using qube_rel_pos_t = glm::ivec3;
 
-static_assert ((block_size_pow2 & (block_size_pow2 - 1)) == 0,
-	  "block_size_pow2 must be a power of 2");
-static_assert (block_size + 2 * block_border == block_size_pow2,
-	  "Block size, together with the border, must be equal to its pow-2 size (block_size_pow2)");
+static constexpr int block_size = 16;
+static constexpr int block_data_size = block_size * block_size * block_size;
 
-typedef std::uint16_t QubeType;
-typedef glm::ivec3 BlockPosition;
-typedef float LightLevel;
+struct Qube {
+	static constexpr qube_type q_invalid = 0;
+	qube_type type = q_invalid;
+};
 
-struct Block {
-	BlockPosition position;
-	QubeType qube[block_data_size];
-	LightLevel light[block_data_size];
-	// Visual data
-	//  - mesh
-	//  - volume textures
-	// Low-res visual
-	//  - mesh
-	//  - textures
+struct BlockData {
+	Qube qube[block_data_size];
 
-	static int index_unsafe(int x, int y, int z) noexcept {
-		x += block_border;
-		y += block_border;
-		z += block_border;
-		return x + block_size_pow2 * (y + block_size_pow2 * z);
+	static int index_unsafe(qube_rel_pos_t relative) noexcept {
+		return relative.z + block_size * (relative.y + block_size * relative.x);
 	}
 
-	static int index(int x, int y, int z) {
-		if (x < 0 || x >= block_size || y < 0 || y >= block_size || z < 0 || z >= block_size)
+	static int index(qube_rel_pos_t relative) {
+		if (relative.x < 0 || relative.x >= block_size || relative.y < 0 || relative.y >= block_size || relative.z < 0 || relative.z >= block_size)
 			throw std::out_of_range("Qube coordinates are out of block");
-		return index_unsafe(x, y, z);
+		return index_unsafe(relative);
 	}
 };

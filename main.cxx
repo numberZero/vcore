@@ -1,5 +1,9 @@
 #include <cstdio>
 #include <cstdlib>
+#include <atomic>
+#include <memory>
+#include <mutex>
+#include <thread>
 #include <typeinfo>
 #include <vector>
 #include <unistd.h>
@@ -81,7 +85,28 @@ struct Mesh {
 	std::vector<Vertex> vertices;
 };
 
-Mesh make_mesh(MMVManip &mapfrag, glm::ivec3 blockpos) {
+struct ClientMapBlock {
+	std::unique_ptr<Block> content;
+	std::unique_ptr<Mesh> mesh;
+	int neighbours = 0;
+};
+
+class Map {
+private:
+	std::unordered_map<glm::ivec3, ClientMapBlock> data;
+	mutable std::mutex mtx;
+
+	void generateMesh(glm::ivec3 blockpos);
+	void pushBlock(std::unique_ptr<Block> block);
+
+public:
+	void requestBlock(glm::ivec3 blockpos);
+
+	std::vector<Mesh const *> getMeshes() const;
+	bool tryGetMeshes(std::vector<Mesh const *> &to) const;
+};
+
+Mesh make_mesh(VManip &mapfrag, glm::ivec3 blockpos) {
 	Mesh result;
 	glm::ivec3 base = 16 * blockpos;
 	auto add_vertex = [&] (glm::ivec3 pos, glm::vec3 color) -> void {
@@ -135,11 +160,69 @@ Mesh make_mesh(MMVManip &mapfrag, glm::ivec3 blockpos) {
 	return result;
 }
 
+static int level = 0;
 static float yaw = 0.0f;
 static float pitch = 0.0f;
 
-void run() {
-	MapgenV6Params params;
+void Map::generateMesh(glm::ivec3 blockpos) {
+	// thread-local - no locking
+	static const glm::ivec3 dirs[6] = {
+		{-1, 0, 0},
+		{1, 0, 0},
+		{0, -1, 0},
+		{0, 1, 0},
+		{0, 0, -1},
+		{0, 0, 1},
+	};
+	std::swap(blockpos.y, blockpos.z);
+	for (auto dir: dirs) {
+		ClientMapBlock &mblock2 = data[blockpos + dir];
+		if (!mblock2.content)
+			return;
+	}
+	VManip vm{blockpos - 1, blockpos + 1, [this] (glm::ivec3 pos) {
+		return data[pos].content.get();
+	}};
+	std::swap(blockpos.y, blockpos.z);
+	Mesh mesh = make_mesh(vm, blockpos);
+	if (mesh.vertices.empty())
+		return; // don’t need to store it
+	data[blockpos].mesh = std::make_unique<Mesh>(std::move(mesh));
+}
+
+void Map::pushBlock(std::unique_ptr<Block> block) {
+	static const glm::ivec3 dirs[6] = {
+		{-1, 0, 0},
+		{1, 0, 0},
+		{0, -1, 0},
+		{0, 1, 0},
+		{0, 0, -1},
+		{0, 0, 1},
+	};
+	auto pos = block->pos;
+	ClientMapBlock &mblock = data[pos];
+	if (mblock.content)
+		throw std::logic_error("Block already exists");
+	mblock.content = std::move(block);
+}
+
+inline static long round_to(long value, unsigned step, unsigned bias) {
+	if (bias > step)
+		throw std::invalid_argument("Rounding bias is insanely large");
+	return step * divrem(value + bias, step).first - bias;
+}
+
+inline static long round_to(long value, unsigned step) {
+	return round_to(value, step, 0);
+}
+
+void Map::requestBlock(glm::ivec3 blockpos) {
+	// thread-local - no locking
+	ClientMapBlock &block = data[blockpos];
+	if (block.content)
+		return; // generated already
+
+	static MapgenV6Params params;
 	params.np_terrain_base.seed = 33;
 	params.np_terrain_higher.seed = 2;
 	params.np_steepness.seed = 3;
@@ -151,7 +234,7 @@ void run() {
 	params.np_humidity.seed = 9;
 	params.np_trees.seed = 10;
 	params.np_apple_trees.seed = 11;
-	MapV6Params map_params;
+	static MapV6Params map_params;
 	map_params.stone = 1;
 	map_params.dirt = 2;
 	map_params.dirt_with_grass = 3;
@@ -169,23 +252,82 @@ void run() {
 	map_params.mossycobble = 15;
 	map_params.stair_cobble = 16;
 	map_params.stair_desert_stone = 17;
-	MapgenV6 mapgen(&params, map_params);
+	static MapgenV6 mapgen(&params, map_params);
 
-	fmt::print("Ground level: {}\n", mapgen.getGroundLevelAtPoint({0, 0}));
-	fmt::print("Spawn level: {}\n", mapgen.getSpawnLevelAtPoint({0, 0}));
+// 	fmt::print("Ground level: {}\n", mapgen.getGroundLevelAtPoint({0, 0}));
+// 	fmt::print("Spawn level: {}\n", mapgen.getSpawnLevelAtPoint({0, 0}));
 
-	MMVManip mapfrag({-3, -3, -3}, {3, 3, 3});
+	glm::ivec3 base{round_to(blockpos.x, 5, 2), round_to(blockpos.y, 5, 2), round_to(blockpos.z, 5, 2)};
+
+	if (data[base].content) {
+		fmt::printf("Warning: %d,%d,%d is not generated but %d,%d,%d is\n",
+			blockpos.x, blockpos.y, blockpos.z,
+			base.x, base.y, base.z
+		);
+		return; // generated already
+	}
+
+	MMVManip mapfrag{base, base + (5 - 1)};
 	BlockMakeData bmd;
 	bmd.seed = 666;
 	bmd.vmanip = &mapfrag;
-	bmd.blockpos_min = {-2, -2, -2};
-	bmd.blockpos_max = {2, 2, 2};
+	bmd.blockpos_min = base;
+	bmd.blockpos_max = base + (5 - 1);
 	mapgen.makeChunk(&bmd);
-	int level = mapgen.getSpawnLevelAtPoint({0, 0});
+	if (!level)
+		level = mapgen.getSpawnLevelAtPoint({0, 0});
 
-	std::list<Mesh> meshes;
-	for (auto bp: space_range{{-2, -2, -2}, {3, 3, 3}})
-		meshes.push_back(make_mesh(mapfrag, bp));
+	// synchronizing with the main thread
+	std::lock_guard<std::mutex> guard(mtx);
+	for (auto pos: space_range{base, base + 5})
+		pushBlock(mapfrag.takeBlock(pos));
+	for (auto pos: space_range{base - 1, base + 7})
+		generateMesh(pos);
+}
+
+std::vector<Mesh const *> Map::getMeshes() const {
+	std::vector<Mesh const *> result;
+	std::lock_guard<std::mutex> guard(mtx);
+	for (auto &&[pos, block]: data) {
+		if (block.mesh)
+			result.push_back(block.mesh.get());
+	}
+	return result;
+}
+
+bool Map::tryGetMeshes(std::vector<Mesh const *> &to) const {
+	std::unique_lock<std::mutex> guard(mtx, std::try_to_lock);
+	if (!guard.owns_lock())
+		return false;
+	to.clear();
+	for (auto &&[pos, block]: data) {
+		if (block.mesh)
+			to.push_back(block.mesh.get());
+	}
+	return true;
+}
+
+static Map map;
+static std::atomic<bool> do_run = {true};
+
+void mapgenth() {
+	unsigned sum = 0;
+	while (sum <= 40) {
+		fmt::printf("Generating layer %d\n", sum);
+		for (int i = 0; i <= sum; i++)
+			for (int j = 0; j <= sum - i; j++) {
+				int k = sum - i - j;
+				if (!do_run)
+					return;
+				map.requestBlock({i, j, k});
+			}
+		sum++;
+	}
+}
+
+void run() {
+	map.requestBlock({0, 0, 0});
+	std::thread th(mapgenth);
 
 	auto vert_shader = R"(#version 330
 uniform mat4 m;
@@ -226,6 +368,7 @@ void main() {
 	glm::vec3 pos{0.0f, 0.0f, level};
 	float t = glfwGetTime();
 
+	auto meshes = map.getMeshes();
 	while (!glfwWindowShouldClose(window)) {
 		float t2 = glfwGetTime();
 		float dt = t2 - t;
@@ -250,7 +393,7 @@ void main() {
 		float aspect = 1.f * w / h;
 		float eye_level = 1.75f;
 		glm::mat4 m_view = glm::translate(glm::eulerAngleXZ(pitch, yaw), -(pos + glm::vec3{0.0f, 0.0f, eye_level}));
-		glm::mat4 m_proj = glm::perspective(glm::radians(60.f), aspect, .1f, 100.f);
+		glm::mat4 m_proj = glm::infinitePerspective(glm::radians(60.f), aspect, .1f);
 		m_proj[2] = -m_proj[2];
 		std::swap(m_proj[1], m_proj[2]);
 		glm::mat4 m_render = m_proj * m_view;
@@ -262,14 +405,17 @@ void main() {
 		fn.UseProgram(prog);
 		fn.EnableVertexAttribArray(0);
 		fn.EnableVertexAttribArray(1);
-		for (Mesh &mesh: meshes) {
-			fn.VertexAttribPointer(p_location, 3, GL_FLOAT, false, sizeof(Vertex), &mesh.vertices[0].position);
-			fn.VertexAttribPointer(c_location, 3, GL_FLOAT, false, sizeof(Vertex), &mesh.vertices[0].color);
-			fn.DrawArrays(GL_QUADS, 0, mesh.vertices.size());
+		map.tryGetMeshes(meshes);
+		for (Mesh const *mesh: meshes) {
+			fn.VertexAttribPointer(p_location, 3, GL_FLOAT, false, sizeof(Vertex), &mesh->vertices[0].position);
+			fn.VertexAttribPointer(c_location, 3, GL_FLOAT, false, sizeof(Vertex), &mesh->vertices[0].color);
+			fn.DrawArrays(GL_QUADS, 0, mesh->vertices.size());
 		}
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
+	do_run = false;
+	th.join();
 }
 
 static void on_mouse_move(GLFWwindow *window, double xpos, double ypos) {
@@ -299,7 +445,9 @@ int main(int argc, char **argv) {
 		goto err_after_glfw;
 	}
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+#ifdef GLFW_RAW_MOUSE_MOTION
 	glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+#endif
 	glfwSetCursorPosCallback(window, on_mouse_move);
 
 	glfwMakeContextCurrent(window);

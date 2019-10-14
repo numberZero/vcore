@@ -4,6 +4,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 project(vcore)
 
+find_package(Threads REQUIRED)
 find_package(GLFW REQUIRED)
 find_package(GLM REQUIRED)
 
@@ -15,8 +16,8 @@ set_target_properties(GLXX PROPERTIES
 
 add_executable(vcore
 	main.cxx
-	map/map.cxx
-	mapgen/heightmap.cxx
+# 	map/map.cxx
+# 	mapgen/heightmap.cxx
 	util/io.cxx
 # 	util/perlin.cxx
 )
@@ -34,6 +35,7 @@ target_link_libraries(vcore PUBLIC
 	GLXX
 	mapgen_minetest_v6
 	stdc++fs
+	Threads::Threads
 	${CMAKE_DL_LIBS}
 )
 
