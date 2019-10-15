@@ -11,6 +11,7 @@
 #include <gl++/c.hxx>
 #include <GLFW/glfw3.h>
 #include "mapgen/minetest/v6/mapgen_v6.hxx"
+#include "time.hxx"
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include "glm/gtx/euler_angles.hpp"
