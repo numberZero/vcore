@@ -103,6 +103,41 @@ unsigned link_program(std::vector<unsigned> shaders, bool delete_shaders = true)
 	throw gl_exception(fmt::sprintf("Can't link program: %s", log.data()));
 }
 
+template <int level>
+struct Slice {
+	static constexpr int size = MAP_BLOCKSIZE >> level;
+	static constexpr int data_size = size * size;
+
+	content_t face[data_size];
+
+	static int index_unsafe(glm::ivec2 pos) noexcept {
+		return pos.y + size * pos.x;
+	}
+
+	static int index(glm::ivec2 pos) {
+		if (pos.x < 0 || pos.x >= size || pos.y < 0 || pos.y >= size)
+			throw std::out_of_range("Face coordinates are out of slice");
+		return index_unsafe(pos);
+	}
+
+	content_t get_r(glm::ivec2 pos) const {
+		return face[index(pos)];
+	}
+
+	content_t &get_rw(glm::ivec2 pos) {
+		return face[index(pos)];
+	}
+};
+
+template <int h_level = 0, int v_level = h_level>
+using SlicePack = std::array<Slice<h_level>, (MAP_BLOCKSIZE >> v_level)>;
+
+template <int h_level = 0, int v_level = h_level>
+struct SliceSet {
+	using Pack = SlicePack<h_level, v_level>;
+	Pack xn, xp, yn, yp, zn, zp;
+};
+
 struct Mesh {
 	std::vector<Vertex> vertices;
 };
@@ -131,65 +166,73 @@ public:
 static timespec mapgen_time = {0, 0};
 static timespec meshgen_time = {0, 0};
 
-Mesh make_mesh(VManip &mapfrag, glm::ivec3 blockpos) {
-	Mesh result;
-	glm::ivec3 base = 16 * blockpos;
-	auto add_vertex = [&] (glm::ivec3 pos, glm::vec3 color) -> void {
-		result.vertices.push_back({pos, color});
-	};
-	result.vertices.reserve(4 * 3 * 16 * 16 * 17);
+inline static glm::ivec2 pack_xn(glm::ivec3 rel) { return {rel.z, rel.y}; }
+inline static glm::ivec2 pack_xp(glm::ivec3 rel) { return {rel.y, rel.z}; }
+inline static glm::ivec2 pack_yn(glm::ivec3 rel) { return {rel.x, rel.z}; }
+inline static glm::ivec2 pack_yp(glm::ivec3 rel) { return {rel.z, rel.x}; }
+inline static glm::ivec2 pack_zn(glm::ivec3 rel) { return {rel.y, rel.x}; }
+inline static glm::ivec2 pack_zp(glm::ivec3 rel) { return {rel.x, rel.y}; }
 
-	for (glm::ivec3 pos: space_range{base, base + glm::ivec3{16, 16, 16}}) {
+inline static glm::ivec3 unpack_xn(glm::ivec2 uv) { return {0, uv.y, uv.x}; }
+inline static glm::ivec3 unpack_xp(glm::ivec2 uv) { return {1, uv.x, uv.y}; }
+inline static glm::ivec3 unpack_yn(glm::ivec2 uv) { return {uv.x, 0, uv.y}; }
+inline static glm::ivec3 unpack_yp(glm::ivec2 uv) { return {uv.y, 1, uv.x}; }
+inline static glm::ivec3 unpack_zn(glm::ivec2 uv) { return {uv.y, uv.x, 0}; }
+inline static glm::ivec3 unpack_zp(glm::ivec2 uv) { return {uv.x, uv.y, 1}; }
+
+SliceSet<> make_slices(VManip const &mapfrag, glm::ivec3 blockpos) {
+	SliceSet<> result;
+	std::memset(&result, -1, sizeof(result));
+	glm::ivec3 base = 16 * blockpos;
+	for (glm::ivec3 rel: space_range{glm::ivec3{0, 0, 0}, glm::ivec3{16, 16, 16}}) {
+		glm::ivec3 pos = base + rel;
 		content_t self = mapfrag.get(pos).content;
 		assert(self != CONTENT_IGNORE);
 		if (self == CONTENT_AIR)
 			continue;
-		auto color = content_colors.at(self);
-		content_t up = mapfrag.get(pos + glm::ivec3{0, 0, 1}).content;
-		if (up == CONTENT_AIR) {
-			add_vertex(pos + glm::ivec3{0, 0, 1}, 1.0f * color);
-			add_vertex(pos + glm::ivec3{1, 0, 1}, 1.0f * color);
-			add_vertex(pos + glm::ivec3{1, 1, 1}, 1.0f * color);
-			add_vertex(pos + glm::ivec3{0, 1, 1}, 1.0f * color);
-		}
-		content_t down = mapfrag.get(pos + glm::ivec3{0, 0, -1}).content;
-		if (down == CONTENT_AIR) {
-			add_vertex(pos + glm::ivec3{0, 0, 0}, 0.5f * color);
-			add_vertex(pos + glm::ivec3{0, 1, 0}, 0.5f * color);
-			add_vertex(pos + glm::ivec3{1, 1, 0}, 0.5f * color);
-			add_vertex(pos + glm::ivec3{1, 0, 0}, 0.5f * color);
-		}
-		content_t left = mapfrag.get(pos + glm::ivec3{-1, 0, 0}).content;
-		if (left == CONTENT_AIR) {
-			add_vertex(pos + glm::ivec3{0, 0, 0}, 0.8f * color);
-			add_vertex(pos + glm::ivec3{0, 0, 1}, 0.8f * color);
-			add_vertex(pos + glm::ivec3{0, 1, 1}, 0.8f * color);
-			add_vertex(pos + glm::ivec3{0, 1, 0}, 0.8f * color);
-		}
-		content_t front = mapfrag.get(pos + glm::ivec3{0, -1, 0}).content;
-		if (front == CONTENT_AIR) {
-			add_vertex(pos + glm::ivec3{0, 0, 0}, 0.9f * color);
-			add_vertex(pos + glm::ivec3{1, 0, 0}, 0.9f * color);
-			add_vertex(pos + glm::ivec3{1, 0, 1}, 0.9f * color);
-			add_vertex(pos + glm::ivec3{0, 0, 1}, 0.9f * color);
-		}
-		content_t right = mapfrag.get(pos + glm::ivec3{1, 0, 0}).content;
-		if (right == CONTENT_AIR) {
-			add_vertex(pos + glm::ivec3{1, 0, 0}, 0.8f * color);
-			add_vertex(pos + glm::ivec3{1, 1, 0}, 0.8f * color);
-			add_vertex(pos + glm::ivec3{1, 1, 1}, 0.8f * color);
-			add_vertex(pos + glm::ivec3{1, 0, 1}, 0.8f * color);
-		}
-		content_t back = mapfrag.get(pos + glm::ivec3{0, 1, 0}).content;
-		if (back == CONTENT_AIR) {
-			add_vertex(pos + glm::ivec3{0, 1, 0}, 0.7f * color);
-			add_vertex(pos + glm::ivec3{0, 1, 1}, 0.7f * color);
-			add_vertex(pos + glm::ivec3{1, 1, 1}, 0.7f * color);
-			add_vertex(pos + glm::ivec3{1, 1, 0}, 0.7f * color);
-		}
+		if (mapfrag.get(pos + glm::ivec3{-1, 0, 0}).content == CONTENT_AIR) result.xn.at(rel.x).get_rw(pack_xn(rel)) = self;
+		if (mapfrag.get(pos + glm::ivec3{ 1, 0, 0}).content == CONTENT_AIR) result.xp.at(rel.x).get_rw(pack_xp(rel)) = self;
+		if (mapfrag.get(pos + glm::ivec3{0, -1, 0}).content == CONTENT_AIR) result.yn.at(rel.y).get_rw(pack_yn(rel)) = self;
+		if (mapfrag.get(pos + glm::ivec3{0,  1, 0}).content == CONTENT_AIR) result.yp.at(rel.y).get_rw(pack_yp(rel)) = self;
+		if (mapfrag.get(pos + glm::ivec3{0, 0, -1}).content == CONTENT_AIR) result.zn.at(rel.z).get_rw(pack_zn(rel)) = self;
+		if (mapfrag.get(pos + glm::ivec3{0, 0,  1}).content == CONTENT_AIR) result.zp.at(rel.z).get_rw(pack_zp(rel)) = self;
+	}
+	return result;
+}
+
+template <int level, glm::ivec3 transform(glm::ivec2)>
+void slice_to_mesh(std::vector<Vertex> &dest, Slice<level> slice, glm::ivec3 base, float brightness = 1.0f) {
+	for (int j = 0; j < slice.size; j++)
+	for (int i = 0; i < slice.size; i++) {
+		content_t self = slice.get_r({i, j});
+		if (self == CONTENT_IGNORE)
+			continue;
+		auto color = brightness * content_colors.at(self);
+		dest.push_back({base + transform({(i    ) << level, (j    ) << level}), color});
+		dest.push_back({base + transform({(i + 1) << level, (j    ) << level}), color});
+		dest.push_back({base + transform({(i + 1) << level, (j + 1) << level}), color});
+		dest.push_back({base + transform({(i    ) << level, (j + 1) << level}), color});
+	}
+}
+
+template <int level>
+Mesh make_mesh(SliceSet<level, level> slices, glm::ivec3 offset) {
+	Mesh result;
+	result.vertices.reserve(4 * 3 * 16 * 16 * 17);
+	for (int index = 0; index < MAP_BLOCKSIZE >> level; index++) {
+		slice_to_mesh<level, unpack_xn>(result.vertices, slices.xn.at(index), offset + glm::ivec3{index, 0, 0}, 0.8f);
+		slice_to_mesh<level, unpack_xp>(result.vertices, slices.xp.at(index), offset + glm::ivec3{index, 0, 0}, 0.8f);
+		slice_to_mesh<level, unpack_yn>(result.vertices, slices.yn.at(index), offset + glm::ivec3{0, index, 0}, 0.9f);
+		slice_to_mesh<level, unpack_yp>(result.vertices, slices.yp.at(index), offset + glm::ivec3{0, index, 0}, 0.7f);
+		slice_to_mesh<level, unpack_zn>(result.vertices, slices.zn.at(index), offset + glm::ivec3{0, 0, index}, 0.5f);
+		slice_to_mesh<level, unpack_zp>(result.vertices, slices.zp.at(index), offset + glm::ivec3{0, 0, index}, 1.0f);
 	}
 	result.vertices.shrink_to_fit();
 	return result;
+}
+
+Mesh make_mesh(VManip &mapfrag, glm::ivec3 blockpos) {
+	return make_mesh(make_slices(mapfrag, blockpos), MAP_BLOCKSIZE * blockpos);
 }
 
 static int level = 0;
