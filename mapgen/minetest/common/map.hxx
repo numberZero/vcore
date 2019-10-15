@@ -90,7 +90,7 @@ struct Block {
 	mutable int wcounter = 0;
 
 	static int index_unsafe(glm::ivec3 relative) noexcept {
-		return relative.x + MAP_BLOCKSIZE * (relative.y + MAP_BLOCKSIZE * relative.z);
+		return relative.z + MAP_BLOCKSIZE * (relative.y + MAP_BLOCKSIZE * relative.x);
 	}
 
 	static int index(glm::ivec3 relative) {
