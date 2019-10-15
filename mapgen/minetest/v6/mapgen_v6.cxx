@@ -443,8 +443,10 @@ void MapgenV6::makeChunk(BlockMakeData *data)
 	node_max = (blockpos_max + v3s16(1, 1, 1)) * MAP_BLOCKSIZE - v3s16(1, 1, 1);
 
 	// Full allocated area
-	full_node_min = (blockpos_min - 1) * MAP_BLOCKSIZE;
-	full_node_max = (blockpos_max + 2) * MAP_BLOCKSIZE - v3s16(1, 1, 1);
+	full_node_min = node_min;
+	full_node_max = node_max;
+// 	full_node_min = (blockpos_min - 1) * MAP_BLOCKSIZE;
+// 	full_node_max = (blockpos_max + 2) * MAP_BLOCKSIZE - v3s16(1, 1, 1);
 
 	central_area_size = node_max - node_min + v3s16(1, 1, 1);
 	assert(central_area_size.x == central_area_size.z);
@@ -544,7 +546,7 @@ void MapgenV6::makeChunk(BlockMakeData *data)
 // 	updateLiquid(&data->transforming_liquid, full_node_min, full_node_max);
 
 	// Add surface nodes
-// 	growGrass();
+	growGrass();
 
 	// Generate some trees, and add grass, if a jungle
 // 	if (spflags & MGV6_TREES)
@@ -941,14 +943,12 @@ void MapgenV6::placeTreesAndJungleGrass()
 	//printf("placeTreesAndJungleGrass: %dms\n", t.stop());
 }
 */
-/*
 void MapgenV6::growGrass() // Add surface nodes
 {
 	MapNode n_dirt_with_grass{c.dirt_with_grass};
 	MapNode n_dirt_with_snow{c.dirt_with_snow};
 	MapNode n_snowblock{c.snowblock};
 	MapNode n_snow{c.snow};
-	const v3s16 &em = vm->m_area.getExtent();
 
 	u32 index = 0;
 	for (s16 z = full_node_min.z; z <= full_node_max.z; z++)
@@ -957,42 +957,41 @@ void MapgenV6::growGrass() // Add surface nodes
 		// grass grow.  Basically just wait until not air and not leaves.
 		s16 surface_y = 0;
 		{
-			u32 i = vm->m_area.index(x, node_max.y, z);
 			s16 y;
 			// Go to ground level
 			for (y = node_max.y; y >= full_node_min.y; y--) {
-				MapNode &n = vm->m_data[i];
-				if (ndef->get(n).param_type != CPT_LIGHT ||
-						ndef->get(n).liquid_type != LIQUID_NONE ||
-						n.getContent() == c.ice)
+				MapNode n = vm->get_r({x, y, z});
+				if (n.content != CONTENT_AIR) // FIXME: non-full-node decorations?
 					break;
-				VoxelArea::add_y(em, i, -1);
+// 				if (ndef->get(n).param_type != CPT_LIGHT ||
+// 						ndef->get(n).liquid_type != LIQUID_NONE ||
+// 						n.getContent() == c.ice)
+// 					break;
 			}
 			surface_y = (y >= full_node_min.y) ? y : full_node_min.y;
 		}
 
 		BiomeV6Type bt = getBiome(index, v2s16(x, z));
-		u32 i = vm->m_area.index(x, surface_y, z);
-		content_t c = vm->m_data[i].getContent();
+		glm::ivec3 pos = {x, surface_y, z};
+		content_t n = vm->get_r(pos).content;
 		if (surface_y >= water_level - 20) {
-			if (bt == BT_TAIGA && c == c.dirt) {
-				vm->m_data[i] = n_dirt_with_snow;
+			if (bt == BT_TAIGA && n == c.dirt) {
+				vm->get_rw(pos) = n_dirt_with_snow;
 			} else if (bt == BT_TUNDRA) {
-				if (c == c.dirt) {
-					vm->m_data[i] = n_snowblock;
-					VoxelArea::add_y(em, i, -1);
-					vm->m_data[i] = n_dirt_with_snow;
-				} else if (c == c.stone && surface_y < node_max.y) {
-					VoxelArea::add_y(em, i, 1);
-					vm->m_data[i] = n_snowblock;
+				if (n == c.dirt) {
+					vm->get_rw(pos) = n_snowblock;
+					pos.y--;
+					vm->get_rw(pos) = n_dirt_with_snow;
+				} else if (n == c.stone && surface_y < node_max.y) {
+					pos.y++;
+					vm->get_rw(pos) = n_snowblock;
 				}
-			} else if (c == c.dirt) {
-				vm->m_data[i] = n_dirt_with_grass;
+			} else if (n == c.dirt) {
+				vm->get_rw(pos) = n_dirt_with_grass;
 			}
 		}
 	}
 }
-*/
 /*
 void MapgenV6::generateCaves(int max_stone_y)
 {
