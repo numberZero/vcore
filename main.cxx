@@ -317,7 +317,7 @@ void Map::requestBlock(glm::ivec3 blockpos) {
 	std::lock_guard<std::mutex> guard(mtx);
 	for (auto pos: space_range{base, base + 5})
 		pushBlock(mapfrag.takeBlock(pos));
-	for (auto pos: space_range{base - 1, base + 7})
+	for (auto pos: space_range{base - 1, base + 6})
 		generateMesh(pos);
 }
 
