@@ -115,40 +115,39 @@ Mesh make_mesh(VManip &mapfrag, glm::ivec3 blockpos) {
 	result.vertices.reserve(4 * 3 * 16 * 16 * 17);
 
 	for (glm::ivec3 pos: space_range{base, base + glm::ivec3{16, 16, 16}}) {
-		glm::ivec3 mpos = {pos.x, pos.z, pos.y};
-		content_t self = mapfrag.get(mpos).content;
+		content_t self = mapfrag.get(pos).content;
 		assert(self != CONTENT_IGNORE);
 		if (self == CONTENT_AIR)
 			continue;
-		content_t up = mapfrag.get(mpos + glm::ivec3{0, 1, 0}).content;
+		content_t up = mapfrag.get(pos + glm::ivec3{0, 0, 1}).content;
 		if (up == CONTENT_AIR) {
 			add_vertex(pos + glm::ivec3{0, 0, 1}, {0.1f, 0.3f, 0.0f});
 			add_vertex(pos + glm::ivec3{1, 0, 1}, {0.0f, 0.4f, 0.0f});
 			add_vertex(pos + glm::ivec3{1, 1, 1}, {0.1f, 0.3f, 0.0f});
 			add_vertex(pos + glm::ivec3{0, 1, 1}, {0.0f, 0.4f, 0.0f});
 		}
-		content_t left = mapfrag.get(mpos + glm::ivec3{-1, 0, 0}).content;
+		content_t left = mapfrag.get(pos + glm::ivec3{-1, 0, 0}).content;
 		if (left == CONTENT_AIR) {
 			add_vertex(pos + glm::ivec3{0, 0, 0}, {0.0f, 0.0f, 0.0f});
 			add_vertex(pos + glm::ivec3{0, 0, 1}, {0.0f, 0.0f, 1.0f});
 			add_vertex(pos + glm::ivec3{0, 1, 1}, {0.0f, 0.0f, 1.0f});
 			add_vertex(pos + glm::ivec3{0, 1, 0}, {0.0f, 0.0f, 0.0f});
 		}
-		content_t front = mapfrag.get(mpos + glm::ivec3{0, 0, -1}).content;
+		content_t front = mapfrag.get(pos + glm::ivec3{0, -1, 0}).content;
 		if (front == CONTENT_AIR) {
 			add_vertex(pos + glm::ivec3{0, 0, 0}, {0.0f, 0.0f, 0.0f});
 			add_vertex(pos + glm::ivec3{1, 0, 0}, {0.0f, 0.0f, 0.0f});
 			add_vertex(pos + glm::ivec3{1, 0, 1}, {0.0f, 0.0f, 1.0f});
 			add_vertex(pos + glm::ivec3{0, 0, 1}, {0.0f, 0.0f, 1.0f});
 		}
-		content_t right = mapfrag.get(mpos + glm::ivec3{1, 0, 0}).content;
+		content_t right = mapfrag.get(pos + glm::ivec3{1, 0, 0}).content;
 		if (right == CONTENT_AIR) {
 			add_vertex(pos + glm::ivec3{1, 0, 0}, {0.0f, 0.0f, 0.0f});
 			add_vertex(pos + glm::ivec3{1, 1, 0}, {0.0f, 0.0f, 0.0f});
 			add_vertex(pos + glm::ivec3{1, 1, 1}, {0.0f, 0.0f, 1.0f});
 			add_vertex(pos + glm::ivec3{1, 0, 1}, {0.0f, 0.0f, 1.0f});
 		}
-		content_t back = mapfrag.get(mpos + glm::ivec3{0, 0, 1}).content;
+		content_t back = mapfrag.get(pos + glm::ivec3{0, 1, 0}).content;
 		if (back == CONTENT_AIR) {
 			add_vertex(pos + glm::ivec3{0, 1, 0}, {0.0f, 0.0f, 0.0f});
 			add_vertex(pos + glm::ivec3{0, 1, 1}, {0.0f, 0.0f, 1.0f});
@@ -174,7 +173,6 @@ void Map::generateMesh(glm::ivec3 blockpos) {
 		{0, 0, -1},
 		{0, 0, 1},
 	};
-	std::swap(blockpos.y, blockpos.z);
 	for (auto dir: dirs) {
 		ClientMapBlock &mblock2 = data[blockpos + dir];
 		if (!mblock2.content)
@@ -183,7 +181,6 @@ void Map::generateMesh(glm::ivec3 blockpos) {
 	VManip vm{blockpos - 1, blockpos + 1, [this] (glm::ivec3 pos) {
 		return data[pos].content.get();
 	}};
-	std::swap(blockpos.y, blockpos.z);
 	Mesh mesh = make_mesh(vm, blockpos);
 	if (mesh.vertices.empty())
 		return; // don’t need to store it
@@ -271,8 +268,8 @@ void Map::requestBlock(glm::ivec3 blockpos) {
 	BlockMakeData bmd;
 	bmd.seed = 666;
 	bmd.vmanip = &mapfrag;
-	bmd.blockpos_min = base;
-	bmd.blockpos_max = base + (5 - 1);
+	bmd.blockpos_min = vcore_to_mt(base);
+	bmd.blockpos_max = vcore_to_mt(base + (5 - 1));
 	mapgen.makeChunk(&bmd);
 	if (!level)
 		level = mapgen.getSpawnLevelAtPoint({0, 0});

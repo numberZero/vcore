@@ -69,6 +69,14 @@ space_iterator end(space_range const &range) {
 	return {range, range.b};
 }
 
+glm::ivec3 mt_to_vcore(glm::ivec3 pos) {
+	return {pos.x, pos.z, pos.y};
+}
+
+glm::ivec3 vcore_to_mt(glm::ivec3 pos) {
+	return {pos.x, pos.z, pos.y};
+}
+
 struct Qube {
 	content_t content = CONTENT_IGNORE;
 	param_t light = 0x00;
@@ -214,8 +222,8 @@ public:
 	MMVManip(glm::ivec3 a, glm::ivec3 b)
 		: bstart(a)
 		, bsize(b - a + 1)
-		, MinEdge(MAP_BLOCKSIZE * a)
-		, MaxEdge(MAP_BLOCKSIZE * b + MAP_BLOCKSIZE - 1)
+		, MinEdge(vcore_to_mt(MAP_BLOCKSIZE * a))
+		, MaxEdge(vcore_to_mt(MAP_BLOCKSIZE * b + MAP_BLOCKSIZE - 1))
 	{
 		blocks.resize(bsize.x * bsize.y * bsize.z);
 		for (auto &pblock: blocks)
@@ -224,32 +232,32 @@ public:
 			getBlock(pos).pos = pos;
 	}
 
-	bool in_area(glm::ivec3 vqube) {
-		auto [vblock, rqube] = split(vqube);
+	bool in_area(glm::ivec3 pos) {
+		auto [vblock, rqube] = split(mt_to_vcore(pos));
 		return in_manip(vblock);
 	}
 
-	Qube const &get(glm::ivec3 vqube) {
-		auto [vblock, rqube] = split(vqube);
+	Qube const &get(glm::ivec3 pos) const {
+		auto [vblock, rqube] = split(mt_to_vcore(pos));
 		return getBlock(vblock).qube[Block::index_unsafe(rqube)];
 	}
 
-	Qube get_r(glm::ivec3 vqube) const {
-		auto [vblock, rqube] = split(vqube);
+	Qube get_r(glm::ivec3 pos) const {
+		auto [vblock, rqube] = split(mt_to_vcore(pos));
 		auto &&block = getBlock(vblock);
 		++block.rcounter;
 		return block.qube[Block::index_unsafe(rqube)];
 	}
 
-	Qube &get_rw(glm::ivec3 vqube) {
-		auto [vblock, rqube] = split(vqube);
+	Qube &get_rw(glm::ivec3 pos) {
+		auto [vblock, rqube] = split(mt_to_vcore(pos));
 		auto &&block = getBlock(vblock);
 		++block.wcounter;
 		return block.qube[Block::index_unsafe(rqube)];
 	}
 
-	Qube get_ign(glm::ivec3 vqube) {
-		auto [vblock, rqube] = split(vqube);
+	Qube get_ign(glm::ivec3 pos) {
+		auto [vblock, rqube] = split(mt_to_vcore(pos));
 		if (!in_manip(vblock))
 			return {CONTENT_IGNORE};
 		auto &&block = getBlock(vblock);
