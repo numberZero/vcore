@@ -126,6 +126,13 @@ Mesh make_mesh(VManip &mapfrag, glm::ivec3 blockpos) {
 			add_vertex(pos + glm::ivec3{1, 1, 1}, {0.1f, 0.3f, 0.0f});
 			add_vertex(pos + glm::ivec3{0, 1, 1}, {0.0f, 0.4f, 0.0f});
 		}
+		content_t down = mapfrag.get(pos + glm::ivec3{0, 0, -1}).content;
+		if (down == CONTENT_AIR) {
+			add_vertex(pos + glm::ivec3{0, 0, 0}, {0.0f, 0.0f, 0.0f});
+			add_vertex(pos + glm::ivec3{0, 1, 0}, {0.0f, 0.2f, 0.0f});
+			add_vertex(pos + glm::ivec3{1, 1, 0}, {0.0f, 0.0f, 0.0f});
+			add_vertex(pos + glm::ivec3{1, 0, 0}, {0.0f, 0.2f, 0.0f});
+		}
 		content_t left = mapfrag.get(pos + glm::ivec3{-1, 0, 0}).content;
 		if (left == CONTENT_AIR) {
 			add_vertex(pos + glm::ivec3{0, 0, 0}, {0.0f, 0.0f, 0.0f});
