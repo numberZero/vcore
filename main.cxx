@@ -30,6 +30,27 @@ struct Vertex {
 
 using Index = std::uint16_t;
 
+static glm::vec3 const content_colors[] = {
+	[0] = {1.0f, 1.0f, 1.0f}, // air
+	[1] = {0.5f, 0.5f, 0.5f}, // stone
+	[2] = {0.5f, 0.2f, 0.1f}, // dirt
+	[3] = {0.2f, 0.6f, 0.0f}, // dirt_with_grass
+	[4] = {0.9f, 0.8f, 0.6f}, // sand
+	[5] = {0.3f, 0.4f, 0.9f}, // water_source
+	[6] = {0.9f, 0.6f, 0.0f}, // lava_source
+	[7] = {0.3f, 0.3f, 0.3f}, // gravel
+	[8] = {0.0f, 0.0f, 0.0f}, // desert_stone
+	[9] = {0.0f, 0.0f, 0.0f}, // desert_sand
+	[10] = {0.0f, 0.0f, 0.0f}, // dirt_with_snow
+	[11] = {0.0f, 0.0f, 0.0f}, // snow
+	[12] = {0.0f, 0.0f, 0.0f}, // snowblock
+	[13] = {0.0f, 0.0f, 0.0f}, // ice
+	[14] = {0.0f, 0.0f, 0.0f}, // cobble
+	[15] = {0.0f, 0.0f, 0.0f}, // mossycobble
+	[16] = {0.0f, 0.0f, 0.0f}, // stair_cobble
+	[17] = {0.0f, 0.0f, 0.0f}, // stair_desert_stone
+};
+
 int plain_shader = 0;
 int map_shader = 0;
 
@@ -123,47 +144,48 @@ Mesh make_mesh(VManip &mapfrag, glm::ivec3 blockpos) {
 		assert(self != CONTENT_IGNORE);
 		if (self == CONTENT_AIR)
 			continue;
+		auto color = content_colors[self];
 		content_t up = mapfrag.get(pos + glm::ivec3{0, 0, 1}).content;
 		if (up == CONTENT_AIR) {
-			add_vertex(pos + glm::ivec3{0, 0, 1}, {0.1f, 0.3f, 0.0f});
-			add_vertex(pos + glm::ivec3{1, 0, 1}, {0.0f, 0.4f, 0.0f});
-			add_vertex(pos + glm::ivec3{1, 1, 1}, {0.1f, 0.3f, 0.0f});
-			add_vertex(pos + glm::ivec3{0, 1, 1}, {0.0f, 0.4f, 0.0f});
+			add_vertex(pos + glm::ivec3{0, 0, 1}, 1.0f * color);
+			add_vertex(pos + glm::ivec3{1, 0, 1}, 1.0f * color);
+			add_vertex(pos + glm::ivec3{1, 1, 1}, 1.0f * color);
+			add_vertex(pos + glm::ivec3{0, 1, 1}, 1.0f * color);
 		}
 		content_t down = mapfrag.get(pos + glm::ivec3{0, 0, -1}).content;
 		if (down == CONTENT_AIR) {
-			add_vertex(pos + glm::ivec3{0, 0, 0}, {0.0f, 0.0f, 0.0f});
-			add_vertex(pos + glm::ivec3{0, 1, 0}, {0.0f, 0.2f, 0.0f});
-			add_vertex(pos + glm::ivec3{1, 1, 0}, {0.0f, 0.0f, 0.0f});
-			add_vertex(pos + glm::ivec3{1, 0, 0}, {0.0f, 0.2f, 0.0f});
+			add_vertex(pos + glm::ivec3{0, 0, 0}, 0.5f * color);
+			add_vertex(pos + glm::ivec3{0, 1, 0}, 0.5f * color);
+			add_vertex(pos + glm::ivec3{1, 1, 0}, 0.5f * color);
+			add_vertex(pos + glm::ivec3{1, 0, 0}, 0.5f * color);
 		}
 		content_t left = mapfrag.get(pos + glm::ivec3{-1, 0, 0}).content;
 		if (left == CONTENT_AIR) {
-			add_vertex(pos + glm::ivec3{0, 0, 0}, {0.0f, 0.0f, 0.0f});
-			add_vertex(pos + glm::ivec3{0, 0, 1}, {0.0f, 0.0f, 1.0f});
-			add_vertex(pos + glm::ivec3{0, 1, 1}, {0.0f, 0.0f, 1.0f});
-			add_vertex(pos + glm::ivec3{0, 1, 0}, {0.0f, 0.0f, 0.0f});
+			add_vertex(pos + glm::ivec3{0, 0, 0}, 0.8f * color);
+			add_vertex(pos + glm::ivec3{0, 0, 1}, 0.8f * color);
+			add_vertex(pos + glm::ivec3{0, 1, 1}, 0.8f * color);
+			add_vertex(pos + glm::ivec3{0, 1, 0}, 0.8f * color);
 		}
 		content_t front = mapfrag.get(pos + glm::ivec3{0, -1, 0}).content;
 		if (front == CONTENT_AIR) {
-			add_vertex(pos + glm::ivec3{0, 0, 0}, {0.0f, 0.0f, 0.0f});
-			add_vertex(pos + glm::ivec3{1, 0, 0}, {0.0f, 0.0f, 0.0f});
-			add_vertex(pos + glm::ivec3{1, 0, 1}, {0.0f, 0.0f, 1.0f});
-			add_vertex(pos + glm::ivec3{0, 0, 1}, {0.0f, 0.0f, 1.0f});
+			add_vertex(pos + glm::ivec3{0, 0, 0}, 0.9f * color);
+			add_vertex(pos + glm::ivec3{1, 0, 0}, 0.9f * color);
+			add_vertex(pos + glm::ivec3{1, 0, 1}, 0.9f * color);
+			add_vertex(pos + glm::ivec3{0, 0, 1}, 0.9f * color);
 		}
 		content_t right = mapfrag.get(pos + glm::ivec3{1, 0, 0}).content;
 		if (right == CONTENT_AIR) {
-			add_vertex(pos + glm::ivec3{1, 0, 0}, {0.0f, 0.0f, 0.0f});
-			add_vertex(pos + glm::ivec3{1, 1, 0}, {0.0f, 0.0f, 0.0f});
-			add_vertex(pos + glm::ivec3{1, 1, 1}, {0.0f, 0.0f, 1.0f});
-			add_vertex(pos + glm::ivec3{1, 0, 1}, {0.0f, 0.0f, 1.0f});
+			add_vertex(pos + glm::ivec3{1, 0, 0}, 0.8f * color);
+			add_vertex(pos + glm::ivec3{1, 1, 0}, 0.8f * color);
+			add_vertex(pos + glm::ivec3{1, 1, 1}, 0.8f * color);
+			add_vertex(pos + glm::ivec3{1, 0, 1}, 0.8f * color);
 		}
 		content_t back = mapfrag.get(pos + glm::ivec3{0, 1, 0}).content;
 		if (back == CONTENT_AIR) {
-			add_vertex(pos + glm::ivec3{0, 1, 0}, {0.0f, 0.0f, 0.0f});
-			add_vertex(pos + glm::ivec3{0, 1, 1}, {0.0f, 0.0f, 1.0f});
-			add_vertex(pos + glm::ivec3{1, 1, 1}, {0.0f, 0.0f, 1.0f});
-			add_vertex(pos + glm::ivec3{1, 1, 0}, {0.0f, 0.0f, 0.0f});
+			add_vertex(pos + glm::ivec3{0, 1, 0}, 0.7f * color);
+			add_vertex(pos + glm::ivec3{0, 1, 1}, 0.7f * color);
+			add_vertex(pos + glm::ivec3{1, 1, 1}, 0.7f * color);
+			add_vertex(pos + glm::ivec3{1, 1, 0}, 0.7f * color);
 		}
 	}
 	result.vertices.shrink_to_fit();
