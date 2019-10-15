@@ -30,7 +30,7 @@ struct Vertex {
 
 using Index = std::uint16_t;
 
-static glm::vec3 const content_colors[] = {
+static std::array<glm::vec3, 18> const content_colors = {{
 	[0] = {1.0f, 1.0f, 1.0f}, // air
 	[1] = {0.5f, 0.5f, 0.5f}, // stone
 	[2] = {0.5f, 0.2f, 0.1f}, // dirt
@@ -41,15 +41,15 @@ static glm::vec3 const content_colors[] = {
 	[7] = {0.3f, 0.3f, 0.3f}, // gravel
 	[8] = {0.0f, 0.0f, 0.0f}, // desert_stone
 	[9] = {0.0f, 0.0f, 0.0f}, // desert_sand
-	[10] = {0.0f, 0.0f, 0.0f}, // dirt_with_snow
+	[10] = {0.7f, 0.8f, 0.9f}, // dirt_with_snow
 	[11] = {0.0f, 0.0f, 0.0f}, // snow
-	[12] = {0.0f, 0.0f, 0.0f}, // snowblock
-	[13] = {0.0f, 0.0f, 0.0f}, // ice
+	[12] = {0.8f, 0.9f, 1.0f}, // snowblock
+	[13] = {0.6f, 0.7f, 1.0f}, // ice
 	[14] = {0.0f, 0.0f, 0.0f}, // cobble
 	[15] = {0.0f, 0.0f, 0.0f}, // mossycobble
 	[16] = {0.0f, 0.0f, 0.0f}, // stair_cobble
 	[17] = {0.0f, 0.0f, 0.0f}, // stair_desert_stone
-};
+}};
 
 int plain_shader = 0;
 int map_shader = 0;
@@ -144,7 +144,7 @@ Mesh make_mesh(VManip &mapfrag, glm::ivec3 blockpos) {
 		assert(self != CONTENT_IGNORE);
 		if (self == CONTENT_AIR)
 			continue;
-		auto color = content_colors[self];
+		auto color = content_colors.at(self);
 		content_t up = mapfrag.get(pos + glm::ivec3{0, 0, 1}).content;
 		if (up == CONTENT_AIR) {
 			add_vertex(pos + glm::ivec3{0, 0, 1}, 1.0f * color);
