@@ -107,6 +107,9 @@ public:
 	bool tryGetMeshes(std::vector<Mesh const *> &to) const;
 };
 
+static timespec mapgen_time = {0, 0};
+static timespec meshgen_time = {0, 0};
+
 Mesh make_mesh(VManip &mapfrag, glm::ivec3 blockpos) {
 	Mesh result;
 	glm::ivec3 base = 16 * blockpos;
@@ -189,7 +192,10 @@ void Map::generateMesh(glm::ivec3 blockpos) {
 	VManip vm{blockpos - 1, blockpos + 1, [this] (glm::ivec3 pos) {
 		return data[pos].content.get();
 	}};
+	timespec t0 = thread_cpu_clock();
 	Mesh mesh = make_mesh(vm, blockpos);
+	timespec t1 = thread_cpu_clock();
+	meshgen_time = meshgen_time + (t1 - t0);
 	if (mesh.vertices.empty())
 		return; // don’t need to store it
 	data[blockpos].mesh = std::make_unique<Mesh>(std::move(mesh));
@@ -278,7 +284,10 @@ void Map::requestBlock(glm::ivec3 blockpos) {
 	bmd.vmanip = &mapfrag;
 	bmd.blockpos_min = vcore_to_mt(base);
 	bmd.blockpos_max = vcore_to_mt(base + (5 - 1));
+	timespec t0 = thread_cpu_clock();
 	mapgen.makeChunk(&bmd);
+	timespec t1 = thread_cpu_clock();
+	mapgen_time = mapgen_time + (t1 - t0);
 	if (!level)
 		level = mapgen.getSpawnLevelAtPoint({0, 0});
 
@@ -318,7 +327,6 @@ static std::atomic<bool> do_run = {true};
 void mapgenth() {
 	unsigned sum = 0;
 	while (sum <= 40) {
-		fmt::printf("Generating layer %d\n", sum);
 		for (int i = 0; i <= sum; i++)
 			for (int j = 0; j <= sum - i; j++) {
 				int k = sum - i - j;
@@ -326,7 +334,10 @@ void mapgenth() {
 					return;
 				map.requestBlock({i, j, k});
 			}
+		fmt::printf("Layer %d generated. Time: mapgen: %.3f s, meshgen: %.3f s\n", sum, to_double(mapgen_time), to_double(meshgen_time));
 		sum++;
+		mapgen_time = {0, 0};
+		meshgen_time = {0, 0};
 	}
 }
 
