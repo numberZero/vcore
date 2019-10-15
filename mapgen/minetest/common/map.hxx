@@ -161,7 +161,7 @@ public:
 			blocks[index(vblock)] = getter(vblock);// ?: throw std::logic_error("Can't fill VManip");
 	}
 
-	Qube const &get(glm::ivec3 vqube) {
+	Qube const &get(glm::ivec3 vqube) const {
 		auto [vblock, rqube] = split(vqube);
 		return getBlock(vblock).qube[Block::index_unsafe(rqube)];
 	}
