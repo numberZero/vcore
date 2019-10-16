@@ -3,6 +3,7 @@
 #include <atomic>
 #include <memory>
 #include <mutex>
+#include <random>
 #include <thread>
 #include <typeinfo>
 #include <vector>
@@ -165,6 +166,7 @@ public:
 
 static timespec mapgen_time = {0, 0};
 static timespec meshgen_time = {0, 0};
+static long mesh_size = 0;
 
 inline static glm::ivec2 pack_xn(glm::ivec3 rel) { return {rel.z, rel.y}; }
 inline static glm::ivec2 pack_xp(glm::ivec3 rel) { return {rel.y, rel.z}; }
@@ -174,11 +176,11 @@ inline static glm::ivec2 pack_zn(glm::ivec3 rel) { return {rel.y, rel.x}; }
 inline static glm::ivec2 pack_zp(glm::ivec3 rel) { return {rel.x, rel.y}; }
 
 inline static glm::ivec3 unpack_xn(glm::ivec2 uv) { return {0, uv.y, uv.x}; }
-inline static glm::ivec3 unpack_xp(glm::ivec2 uv) { return {1, uv.x, uv.y}; }
+inline static glm::ivec3 unpack_xp(glm::ivec2 uv) { return {0, uv.x, uv.y}; }
 inline static glm::ivec3 unpack_yn(glm::ivec2 uv) { return {uv.x, 0, uv.y}; }
-inline static glm::ivec3 unpack_yp(glm::ivec2 uv) { return {uv.y, 1, uv.x}; }
+inline static glm::ivec3 unpack_yp(glm::ivec2 uv) { return {uv.y, 0, uv.x}; }
 inline static glm::ivec3 unpack_zn(glm::ivec2 uv) { return {uv.y, uv.x, 0}; }
-inline static glm::ivec3 unpack_zp(glm::ivec2 uv) { return {uv.x, uv.y, 1}; }
+inline static glm::ivec3 unpack_zp(glm::ivec2 uv) { return {uv.x, uv.y, 0}; }
 
 SliceSet<> make_slices(VManip const &mapfrag, glm::ivec3 blockpos) {
 	SliceSet<> result;
@@ -190,49 +192,131 @@ SliceSet<> make_slices(VManip const &mapfrag, glm::ivec3 blockpos) {
 		assert(self != CONTENT_IGNORE);
 		if (self == CONTENT_AIR)
 			continue;
-		if (mapfrag.get(pos + glm::ivec3{-1, 0, 0}).content == CONTENT_AIR) result.xn.at(rel.x).get_rw(pack_xn(rel)) = self;
+		if (mapfrag.get(pos + glm::ivec3{-1, 0, 0}).content == CONTENT_AIR) result.xn.at(15 - rel.x).get_rw(pack_xn(rel)) = self;
 		if (mapfrag.get(pos + glm::ivec3{ 1, 0, 0}).content == CONTENT_AIR) result.xp.at(rel.x).get_rw(pack_xp(rel)) = self;
-		if (mapfrag.get(pos + glm::ivec3{0, -1, 0}).content == CONTENT_AIR) result.yn.at(rel.y).get_rw(pack_yn(rel)) = self;
+		if (mapfrag.get(pos + glm::ivec3{0, -1, 0}).content == CONTENT_AIR) result.yn.at(15 - rel.y).get_rw(pack_yn(rel)) = self;
 		if (mapfrag.get(pos + glm::ivec3{0,  1, 0}).content == CONTENT_AIR) result.yp.at(rel.y).get_rw(pack_yp(rel)) = self;
-		if (mapfrag.get(pos + glm::ivec3{0, 0, -1}).content == CONTENT_AIR) result.zn.at(rel.z).get_rw(pack_zn(rel)) = self;
+		if (mapfrag.get(pos + glm::ivec3{0, 0, -1}).content == CONTENT_AIR) result.zn.at(15 - rel.z).get_rw(pack_zn(rel)) = self;
 		if (mapfrag.get(pos + glm::ivec3{0, 0,  1}).content == CONTENT_AIR) result.zp.at(rel.z).get_rw(pack_zp(rel)) = self;
 	}
 	return result;
 }
 
+template <int h_level>
+Slice<h_level> merge_slices(Slice<h_level> const &bottom, Slice<h_level> const &top) {
+	Slice<h_level> result;
+	for (int k = 0; k < result.data_size; k++) {
+		content_t t = top.face[k];
+		content_t b = bottom.face[k];
+		result.face[k] = t == CONTENT_IGNORE ? b : t;
+	}
+	return result;
+}
+
+template <int h_level, int v_level>
+auto flatten_slices(SlicePack<h_level, v_level> const &slices) {
+	SlicePack<h_level, v_level + 1> result;
+	for (int k = 0; k < result.size(); k++)
+		result[k] = merge_slices(slices[2 * k], slices[2 * k + 1]);
+	return result;
+}
+
+template <int h_level, int v_level>
+auto flatten_slices(SliceSet<h_level, v_level> const &slices) {
+	SliceSet<h_level, v_level + 1> result;
+	result.xn = flatten_slices<h_level, v_level>(slices.xn);
+	result.xp = flatten_slices<h_level, v_level>(slices.xp);
+	result.yn = flatten_slices<h_level, v_level>(slices.yn);
+	result.yp = flatten_slices<h_level, v_level>(slices.yp);
+	result.zn = flatten_slices<h_level, v_level>(slices.zn);
+	result.zp = flatten_slices<h_level, v_level>(slices.zp);
+	return result;
+}
+
+template <int h_level>
+Slice<h_level + 1> hmerge_slice(Slice<h_level> const &slice) {
+	static std::mt19937 rnd(std::time(nullptr));
+	Slice<h_level + 1> result;
+	std::vector<content_t> v;
+	v.reserve(4);
+	for (int j = 0; j < result.size; j++)
+	for (int i = 0; i < result.size; i++) {
+		v.clear();
+		content_t a = slice.get_r({2 * i    , 2 * j    });
+		content_t b = slice.get_r({2 * i    , 2 * j + 1});
+		content_t c = slice.get_r({2 * i + 1, 2 * j    });
+		content_t d = slice.get_r({2 * i + 1, 2 * j + 1});
+		if (a != CONTENT_IGNORE) v.push_back(a);
+		if (b != CONTENT_IGNORE) v.push_back(b);
+		if (c != CONTENT_IGNORE) v.push_back(c);
+		if (d != CONTENT_IGNORE) v.push_back(d);
+		content_t r = CONTENT_IGNORE;
+		if (!v.empty()) {
+			std::uniform_int_distribution<std::size_t> dist{0, v.size() - 1};
+			r = v.at(dist(rnd));
+		}
+		result.get_rw({i, j}) = r;
+	}
+	return result;
+}
+
+template <int h_level, int v_level>
+auto hmerge_slices(SlicePack<h_level, v_level> const &slices) {
+	SlicePack<h_level + 1, v_level> result;
+	for (int k = 0; k < result.size(); k++)
+		result[k] = hmerge_slice(slices[k]);
+	return result;
+}
+
+template <int h_level, int v_level>
+auto hmerge_slices(SliceSet<h_level, v_level> const &slices) {
+	SliceSet<h_level + 1, v_level> result;
+	result.xn = hmerge_slices<h_level, v_level>(slices.xn);
+	result.xp = hmerge_slices<h_level, v_level>(slices.xp);
+	result.yn = hmerge_slices<h_level, v_level>(slices.yn);
+	result.yp = hmerge_slices<h_level, v_level>(slices.yp);
+	result.zn = hmerge_slices<h_level, v_level>(slices.zn);
+	result.zp = hmerge_slices<h_level, v_level>(slices.zp);
+	return result;
+}
+
 template <int level, glm::ivec3 transform(glm::ivec2)>
 void slice_to_mesh(std::vector<Vertex> &dest, Slice<level> slice, glm::ivec3 base, float brightness = 1.0f) {
+	int scale = 1 << level;
 	for (int j = 0; j < slice.size; j++)
 	for (int i = 0; i < slice.size; i++) {
 		content_t self = slice.get_r({i, j});
 		if (self == CONTENT_IGNORE)
 			continue;
 		auto color = brightness * content_colors.at(self);
-		dest.push_back({base + transform({(i    ) << level, (j    ) << level}), color});
-		dest.push_back({base + transform({(i + 1) << level, (j    ) << level}), color});
-		dest.push_back({base + transform({(i + 1) << level, (j + 1) << level}), color});
-		dest.push_back({base + transform({(i    ) << level, (j + 1) << level}), color});
+		dest.push_back({base + scale * transform({i    , j    }), color});
+		dest.push_back({base + scale * transform({i + 1, j    }), color});
+		dest.push_back({base + scale * transform({i + 1, j + 1}), color});
+		dest.push_back({base + scale * transform({i    , j + 1}), color});
 	}
 }
 
-template <int level>
-Mesh make_mesh(SliceSet<level, level> slices, glm::ivec3 offset) {
+template <int h_level, int v_level>
+Mesh make_mesh(SliceSet<h_level, v_level> slices, glm::ivec3 offset) {
 	Mesh result;
 	result.vertices.reserve(4 * 3 * 16 * 16 * 17);
-	for (int index = 0; index < MAP_BLOCKSIZE >> level; index++) {
-		slice_to_mesh<level, unpack_xn>(result.vertices, slices.xn.at(index), offset + glm::ivec3{index, 0, 0}, 0.8f);
-		slice_to_mesh<level, unpack_xp>(result.vertices, slices.xp.at(index), offset + glm::ivec3{index, 0, 0}, 0.8f);
-		slice_to_mesh<level, unpack_yn>(result.vertices, slices.yn.at(index), offset + glm::ivec3{0, index, 0}, 0.9f);
-		slice_to_mesh<level, unpack_yp>(result.vertices, slices.yp.at(index), offset + glm::ivec3{0, index, 0}, 0.7f);
-		slice_to_mesh<level, unpack_zn>(result.vertices, slices.zn.at(index), offset + glm::ivec3{0, 0, index}, 0.5f);
-		slice_to_mesh<level, unpack_zp>(result.vertices, slices.zp.at(index), offset + glm::ivec3{0, 0, index}, 1.0f);
+	for (int index = 0; index < MAP_BLOCKSIZE >> v_level; index++) {
+		int op = (index + 1) << v_level;
+		int on = MAP_BLOCKSIZE - op;
+		slice_to_mesh<h_level, unpack_xn>(result.vertices, slices.xn.at(index), offset + glm::ivec3{on, 0, 0}, 0.8f);
+		slice_to_mesh<h_level, unpack_xp>(result.vertices, slices.xp.at(index), offset + glm::ivec3{op, 0, 0}, 0.8f);
+		slice_to_mesh<h_level, unpack_yn>(result.vertices, slices.yn.at(index), offset + glm::ivec3{0, on, 0}, 0.9f);
+		slice_to_mesh<h_level, unpack_yp>(result.vertices, slices.yp.at(index), offset + glm::ivec3{0, op, 0}, 0.7f);
+		slice_to_mesh<h_level, unpack_zn>(result.vertices, slices.zn.at(index), offset + glm::ivec3{0, 0, on}, 0.5f);
+		slice_to_mesh<h_level, unpack_zp>(result.vertices, slices.zp.at(index), offset + glm::ivec3{0, 0, op}, 1.0f);
 	}
 	result.vertices.shrink_to_fit();
 	return result;
 }
 
 Mesh make_mesh(VManip &mapfrag, glm::ivec3 blockpos) {
-	return make_mesh(make_slices(mapfrag, blockpos), MAP_BLOCKSIZE * blockpos);
+// 	return make_mesh(make_slices(mapfrag, blockpos), MAP_BLOCKSIZE * blockpos);
+	return make_mesh(hmerge_slices(flatten_slices(make_slices(mapfrag, blockpos))), MAP_BLOCKSIZE * blockpos);
 }
 
 static int level = 0;
@@ -261,6 +345,7 @@ void Map::generateMesh(glm::ivec3 blockpos) {
 	Mesh mesh = make_mesh(vm, blockpos);
 	timespec t1 = thread_cpu_clock();
 	meshgen_time = meshgen_time + (t1 - t0);
+	mesh_size += mesh.vertices.size() / 4;
 	if (mesh.vertices.empty())
 		return; // don’t need to store it
 	data[blockpos].mesh = std::make_unique<Mesh>(std::move(mesh));
@@ -399,7 +484,7 @@ void mapgenth() {
 					return;
 				map.requestBlock({i, j, k});
 			}
-		fmt::printf("Layer %d generated. Time: mapgen: %.3f s, meshgen: %.3f s\n", sum, to_double(mapgen_time), to_double(meshgen_time));
+		fmt::printf("Layer %d generated. Time: mapgen: %.3f s, meshgen: %.3f s; mesh size: %d quads\n", sum, to_double(mapgen_time), to_double(meshgen_time), mesh_size);
 		sum++;
 		mapgen_time = {0, 0};
 		meshgen_time = {0, 0};
