@@ -1,3 +1,4 @@
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <atomic>
@@ -145,7 +146,7 @@ struct Mesh {
 
 struct ClientMapBlock {
 	std::unique_ptr<Block> content;
-	std::unique_ptr<Mesh> mesh;
+	std::array<std::unique_ptr<Mesh>, 5> mesh;
 	int neighbours = 0;
 };
 
@@ -157,11 +158,13 @@ private:
 	void generateMesh(glm::ivec3 blockpos);
 	void pushBlock(std::unique_ptr<Block> block);
 
+	void getMeshesUnlocked(std::vector<Mesh const *> &to, glm::vec3 pos, float mip_range) const;
+
 public:
 	void requestBlock(glm::ivec3 blockpos);
 
-	std::vector<Mesh const *> getMeshes() const;
-	bool tryGetMeshes(std::vector<Mesh const *> &to) const;
+	std::vector<Mesh const *> getMeshes(glm::vec3 pos, float mip_range) const;
+	bool tryGetMeshes(std::vector<Mesh const *> &to, glm::vec3 pos, float mip_range) const;
 };
 
 static timespec mapgen_time = {0, 0};
@@ -297,34 +300,29 @@ void slice_to_mesh(std::vector<Vertex> &dest, Slice<level> slice, glm::ivec3 bas
 }
 
 template <int h_level, int v_level>
-Mesh make_mesh(SliceSet<h_level, v_level> slices, glm::ivec3 offset) {
-	Mesh result;
-	result.vertices.reserve(4 * 3 * 16 * 16 * 17);
+auto make_mesh(SliceSet<h_level, v_level> slices, glm::ivec3 offset) {
+	auto result = std::make_unique<Mesh>();
+	result->vertices.reserve(4 * 3 * 16 * 16 * 17);
 	for (int index = 0; index < MAP_BLOCKSIZE >> v_level; index++) {
 		int op = (index + 1) << v_level;
 		int on = MAP_BLOCKSIZE - op;
-		slice_to_mesh<h_level, unpack_xn>(result.vertices, slices.xn.at(index), offset + glm::ivec3{on, 0, 0}, 0.8f);
-		slice_to_mesh<h_level, unpack_xp>(result.vertices, slices.xp.at(index), offset + glm::ivec3{op, 0, 0}, 0.8f);
-		slice_to_mesh<h_level, unpack_yn>(result.vertices, slices.yn.at(index), offset + glm::ivec3{0, on, 0}, 0.9f);
-		slice_to_mesh<h_level, unpack_yp>(result.vertices, slices.yp.at(index), offset + glm::ivec3{0, op, 0}, 0.7f);
-		slice_to_mesh<h_level, unpack_zn>(result.vertices, slices.zn.at(index), offset + glm::ivec3{0, 0, on}, 0.5f);
-		slice_to_mesh<h_level, unpack_zp>(result.vertices, slices.zp.at(index), offset + glm::ivec3{0, 0, op}, 1.0f);
+		slice_to_mesh<h_level, unpack_xn>(result->vertices, slices.xn.at(index), offset + glm::ivec3{on, 0, 0}, 0.8f);
+		slice_to_mesh<h_level, unpack_xp>(result->vertices, slices.xp.at(index), offset + glm::ivec3{op, 0, 0}, 0.8f);
+		slice_to_mesh<h_level, unpack_yn>(result->vertices, slices.yn.at(index), offset + glm::ivec3{0, on, 0}, 0.9f);
+		slice_to_mesh<h_level, unpack_yp>(result->vertices, slices.yp.at(index), offset + glm::ivec3{0, op, 0}, 0.7f);
+		slice_to_mesh<h_level, unpack_zn>(result->vertices, slices.zn.at(index), offset + glm::ivec3{0, 0, on}, 0.5f);
+		slice_to_mesh<h_level, unpack_zp>(result->vertices, slices.zp.at(index), offset + glm::ivec3{0, 0, op}, 1.0f);
 	}
-	result.vertices.shrink_to_fit();
-	return result;
+	result->vertices.shrink_to_fit();
+	return std::move(result);
 }
 
-Mesh make_mesh(VManip &mapfrag, glm::ivec3 blockpos) {
-// 	return make_mesh(make_slices(mapfrag, blockpos), MAP_BLOCKSIZE * blockpos);
-	return make_mesh(hmerge_slices(flatten_slices(make_slices(mapfrag, blockpos))), MAP_BLOCKSIZE * blockpos);
-}
 
 static int level = 0;
 static float yaw = 0.0f;
 static float pitch = 0.0f;
 
 void Map::generateMesh(glm::ivec3 blockpos) {
-	// thread-local - no locking
 	static const glm::ivec3 dirs[6] = {
 		{-1, 0, 0},
 		{1, 0, 0},
@@ -333,6 +331,7 @@ void Map::generateMesh(glm::ivec3 blockpos) {
 		{0, 0, -1},
 		{0, 0, 1},
 	};
+	std::unique_lock<std::mutex> guard(mtx);
 	for (auto dir: dirs) {
 		ClientMapBlock &mblock2 = data[blockpos + dir];
 		if (!mblock2.content)
@@ -341,14 +340,37 @@ void Map::generateMesh(glm::ivec3 blockpos) {
 	VManip vm{blockpos - 1, blockpos + 1, [this] (glm::ivec3 pos) {
 		return data[pos].content.get();
 	}};
+	guard.unlock();
+
 	timespec t0 = thread_cpu_clock();
-	Mesh mesh = make_mesh(vm, blockpos);
+	auto pos = MAP_BLOCKSIZE * blockpos;
+	auto slices0 = make_slices(vm, blockpos);
+	auto mesh0 = make_mesh(slices0, pos);
+	if (mesh0->vertices.empty())
+		return; // don’t need to store it
+	auto slices1 = hmerge_slices(flatten_slices(slices0));
+	auto mesh1 = make_mesh(slices1, pos);
+	auto slices2 = hmerge_slices(flatten_slices(slices1));
+	auto mesh2 = make_mesh(slices2, pos);
+	auto slices3 = hmerge_slices(flatten_slices(slices2));
+	auto mesh3 = make_mesh(slices3, pos);
+	auto slices4 = hmerge_slices(flatten_slices(slices3));
+	auto mesh4 = make_mesh(slices4, pos);
 	timespec t1 = thread_cpu_clock();
 	meshgen_time = meshgen_time + (t1 - t0);
-	mesh_size += mesh.vertices.size() / 4;
-	if (mesh.vertices.empty())
-		return; // don’t need to store it
-	data[blockpos].mesh = std::make_unique<Mesh>(std::move(mesh));
+
+	guard.lock();
+	if (data[blockpos].mesh[0]) {
+		guard.unlock();
+		fmt::printf("Warning: not replacing already generated mesh for %d, %d, %d\n", blockpos.x, blockpos.y, blockpos.z);
+		return;
+	}
+	data[blockpos].mesh[0] = std::move(mesh0);
+	data[blockpos].mesh[1] = std::move(mesh1);
+	data[blockpos].mesh[2] = std::move(mesh2);
+	data[blockpos].mesh[3] = std::move(mesh3);
+	data[blockpos].mesh[4] = std::move(mesh4);
+	guard.unlock();
 }
 
 void Map::pushBlock(std::unique_ptr<Block> block) {
@@ -441,33 +463,50 @@ void Map::requestBlock(glm::ivec3 blockpos) {
 	if (!level)
 		level = mapgen.getSpawnLevelAtPoint({0, 0});
 
-	// synchronizing with the main thread
-	std::lock_guard<std::mutex> guard(mtx);
-	for (auto pos: space_range{base, base + 5})
-		pushBlock(mapfrag.takeBlock(pos));
+	{ // synchronizing with the main thread
+		std::lock_guard<std::mutex> guard(mtx);
+		for (auto pos: space_range{base, base + 5})
+			pushBlock(mapfrag.takeBlock(pos));
+	}
 	for (auto pos: space_range{base - 1, base + 6})
 		generateMesh(pos);
 }
 
-std::vector<Mesh const *> Map::getMeshes() const {
+void Map::getMeshesUnlocked(std::vector<Mesh const *> &result, glm::vec3 eye_pos, float mip_range) const {
+	result.clear();
+	for (auto &&[pos, block]: data) {
+		if (!block.mesh[0])
+			continue;
+		glm::vec3 center = glm::vec3(MAP_BLOCKSIZE * pos + MAP_BLOCKSIZE / 2);
+		float distance = glm::length(center - eye_pos);
+		int mip_level = 0;
+		std::frexp(distance / mip_range, &mip_level);
+		if (mip_level < 0)
+			mip_level = 0;
+		else if (mip_level >= block.mesh.size())
+			mip_level = block.mesh.size() - 1;
+		Mesh const *mesh = block.mesh.at(mip_level).get();
+		if (!mesh) {
+			fmt::printf("Warning: mip level %d doesn't exist for %d,%d,%d\n", mip_level, pos.x, pos.y, pos.z);
+			mesh = block.mesh[0].get();
+		}
+		result.push_back(mesh);
+	}
+}
+
+std::vector<Mesh const *> Map::getMeshes(glm::vec3 eye_pos, float mip_range) const {
 	std::vector<Mesh const *> result;
 	std::lock_guard<std::mutex> guard(mtx);
-	for (auto &&[pos, block]: data) {
-		if (block.mesh)
-			result.push_back(block.mesh.get());
-	}
+	getMeshesUnlocked(result, eye_pos, mip_range);
 	return result;
 }
 
-bool Map::tryGetMeshes(std::vector<Mesh const *> &to) const {
+bool Map::tryGetMeshes(std::vector<Mesh const *> &to, glm::vec3 eye_pos, float mip_range) const {
 	std::unique_lock<std::mutex> guard(mtx, std::try_to_lock);
 	if (!guard.owns_lock())
 		return false;
 	to.clear();
-	for (auto &&[pos, block]: data) {
-		if (block.mesh)
-			to.push_back(block.mesh.get());
-	}
+	getMeshesUnlocked(to, eye_pos, mip_range);
 	return true;
 }
 
@@ -492,9 +531,6 @@ void mapgenth() {
 }
 
 void run() {
-	map.requestBlock({0, 0, 0});
-	std::thread th(mapgenth);
-
 	auto vert_shader = R"(#version 330
 uniform mat4 m;
 
@@ -534,7 +570,7 @@ void main() {
 	glm::vec3 pos{0.0f, 0.0f, level};
 	float t = glfwGetTime();
 
-	auto meshes = map.getMeshes();
+	std::vector<Mesh const *> meshes;
 	while (!glfwWindowShouldClose(window)) {
 		float t2 = glfwGetTime();
 		float dt = t2 - t;
@@ -558,7 +594,8 @@ void main() {
 		pos += dt * 10.f * glm::orientate3(-yaw) * v;
 		float aspect = 1.f * w / h;
 		float eye_level = 1.75f;
-		glm::mat4 m_view = glm::translate(glm::eulerAngleXZ(pitch, yaw), -(pos + glm::vec3{0.0f, 0.0f, eye_level}));
+		glm::vec3 eye_pos = pos + glm::vec3{0.0f, 0.0f, eye_level};
+		glm::mat4 m_view = glm::translate(glm::eulerAngleXZ(pitch, yaw), -eye_pos);
 		glm::mat4 m_proj = glm::infinitePerspective(glm::radians(60.f), aspect, .1f);
 		m_proj[2] = -m_proj[2];
 		std::swap(m_proj[1], m_proj[2]);
@@ -571,7 +608,7 @@ void main() {
 		fn.UseProgram(prog);
 		fn.EnableVertexAttribArray(0);
 		fn.EnableVertexAttribArray(1);
-		map.tryGetMeshes(meshes);
+		map.tryGetMeshes(meshes, eye_pos, 64.f);
 		for (Mesh const *mesh: meshes) {
 			fn.VertexAttribPointer(p_location, 3, GL_FLOAT, false, sizeof(Vertex), &mesh->vertices[0].position);
 			fn.VertexAttribPointer(c_location, 3, GL_FLOAT, false, sizeof(Vertex), &mesh->vertices[0].color);
@@ -580,8 +617,6 @@ void main() {
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
-	do_run = false;
-	th.join();
 }
 
 static void on_mouse_move(GLFWwindow *window, double xpos, double ypos) {
@@ -619,6 +654,9 @@ int main(int argc, char **argv) {
 	glfwMakeContextCurrent(window);
 	loadAll(glfwGetProcAddress);
 
+	map.requestBlock({0, 0, 0});
+	{
+	std::thread th(mapgenth);
 	try {
 		run();
 		result = EXIT_SUCCESS;
@@ -626,6 +664,9 @@ int main(int argc, char **argv) {
 		fprintf(stderr, "Exception caught of class %s with message:\n%s\n", typeid(e).name(), e.what());
 	} catch(...) {
 		fprintf(stderr, "Invalid exception caught\n");
+	}
+	do_run = false;
+	th.join();
 	}
 
 err_after_window:
