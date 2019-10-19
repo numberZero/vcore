@@ -151,12 +151,8 @@ s16 MapgenV6::find_stone_level(v2s16 p2d)
 {
 	s16 y_nodes_max = vm->MaxEdge.y;
 	s16 y_nodes_min = vm->MinEdge.y;
-	for (int y = y_nodes_max; y >= y_nodes_min; y--) {
-		content_t nc = vm->get({p2d.x, y, p2d.y}).content;
-		if (nc != CONTENT_IGNORE && (nc == c.stone || nc == c.desert_stone))
-			return y;
-	}
-	return y_nodes_min - 1;
+	s16 level = baseTerrainLevelFromMap(p2d);
+	return glm::clamp<s16>(level, y_nodes_min - 1, y_nodes_max);
 }
 
 
@@ -646,7 +642,7 @@ void MapgenV6::addMud()
 		s16 mud_add_amount = getMudAmount(index) / 2.0 + 0.5;
 
 		// Find ground level
-		s16 surface_y = find_stone_level(v2s16(x, z)); /////////////////optimize this!
+		s16 surface_y = find_stone_level(v2s16(x, z));
 
 		// Handle area not found
 		if (surface_y == vm->MinEdge.y - 1)
