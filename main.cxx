@@ -2,6 +2,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <atomic>
+#include <filesystem>
 #include <memory>
 #include <mutex>
 #include <random>
@@ -18,8 +19,11 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include "glm/gtx/euler_angles.hpp"
 #include "glm/gtx/hash.hpp"
+#include "util/io.hxx"
 
 using namespace gl;
+namespace fs = std::filesystem;
+fs::path app_root = "/";
 
 class gl_exception: public std::runtime_error { using runtime_error::runtime_error; };
 
@@ -56,11 +60,11 @@ static std::array<glm::vec3, 18> const content_colors = {{
 int plain_shader = 0;
 int map_shader = 0;
 
-unsigned compile_shader(GLenum type, std::string const &source) {
+unsigned compile_shader(GLenum type, bytearray const &source) {
 	unsigned shader = fn.CreateShader(type);
 	if (!shader)
 		throw gl_exception(fmt::sprintf("Can't create shader (of type %#x)", type));
-	char const *source_data = source.data();
+	char const *source_data = reinterpret_cast<char const *>(source.data());
 	int source_length = source.size();
 	fn.ShaderSource(shader, 1, &source_data, &source_length);
 	fn.CompileShader(shader);
@@ -531,28 +535,8 @@ void mapgenth() {
 }
 
 void run() {
-	auto vert_shader = R"(#version 330
-uniform mat4 m;
-
-in vec3 position;
-in vec3 color;
-out vec3 pos;
-out vec3 v_color;
-
-void main() {
-	pos = position;
-	v_color = color;
-	gl_Position = m * vec4(position, 1.0);
-}
-)";
-	auto frag_shader = R"(#version 330
-in vec3 pos;
-in vec3 v_color;
-void main() {
-// 	gl_FragColor = vec4(pos.z / 16.0, 1.0, 0.0, 1.0);
-	gl_FragColor = vec4(v_color, 1.0);
-}
-)";
+	auto vert_shader = read_file(app_root / "shaders/land.vert");
+	auto frag_shader = read_file(app_root / "shaders/land.frag");
 	auto prog = link_program({
 		compile_shader(GL_VERTEX_SHADER, vert_shader),
 		compile_shader(GL_FRAGMENT_SHADER, frag_shader),
@@ -629,6 +613,9 @@ static void on_mouse_move(GLFWwindow *window, double xpos, double ypos) {
 }
 
 int main(int argc, char **argv) {
+	fs::path self{argv[0]};
+	if (self.has_parent_path())
+		app_root = self.parent_path().parent_path();
 	int result = EXIT_FAILURE;
 	if (!glfwInit()) {
 		fprintf(stderr, "Can't initialize GLFW");
