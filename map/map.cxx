@@ -10,6 +10,8 @@ extern timespec meshgen_time;
 extern long mesh_size;
 extern int level;
 
+static std::vector<Mesh const *> queue;
+
 void Map::generateMesh(glm::ivec3 blockpos) {
 	static const glm::ivec3 dirs[6] = {
 		{-1, 0, 0},
@@ -59,6 +61,7 @@ void Map::generateMesh(glm::ivec3 blockpos) {
 	data[blockpos].mesh[2] = std::move(mesh2);
 	data[blockpos].mesh[3] = std::move(mesh3);
 	data[blockpos].mesh[4] = std::move(mesh4);
+	queue.push_back(data[blockpos].mesh[0].get());
 	guard.unlock();
 }
 
@@ -162,25 +165,8 @@ void Map::requestBlock(glm::ivec3 blockpos) {
 }
 
 void Map::getMeshesUnlocked(std::vector<Mesh const *> &result, glm::vec3 eye_pos, float mip_range) const {
-	result.clear();
-	for (auto &&[pos, block]: data) {
-		if (!block.mesh[0])
-			continue;
-		glm::vec3 center = glm::vec3(MAP_BLOCKSIZE * pos + MAP_BLOCKSIZE / 2);
-		float distance = glm::length(center - eye_pos);
-		int mip_level = 0;
-		std::frexp(distance / mip_range, &mip_level);
-		if (mip_level < 0)
-			mip_level = 0;
-		else if (mip_level >= block.mesh.size())
-			mip_level = block.mesh.size() - 1;
-		Mesh const *mesh = block.mesh.at(mip_level).get();
-		if (!mesh) {
-			fmt::printf("Warning: mip level %d doesn't exist for %d,%d,%d\n", mip_level, pos.x, pos.y, pos.z);
-			mesh = block.mesh[0].get();
-		}
-		result.push_back(mesh);
-	}
+	result.insert(result.end(), queue.begin(), queue.end());
+	queue.clear();
 }
 
 std::vector<Mesh const *> Map::getMeshes(glm::vec3 eye_pos, float mip_range) const {
@@ -194,7 +180,6 @@ bool Map::tryGetMeshes(std::vector<Mesh const *> &to, glm::vec3 eye_pos, float m
 	std::unique_lock<std::mutex> guard(mtx, std::try_to_lock);
 	if (!guard.owns_lock())
 		return false;
-	to.clear();
 	getMeshesUnlocked(to, eye_pos, mip_range);
 	return true;
 }

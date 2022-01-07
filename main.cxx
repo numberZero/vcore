@@ -8,6 +8,7 @@
 #include <random>
 #include <thread>
 #include <typeinfo>
+#include <unordered_map>
 #include <vector>
 #include <unistd.h>
 #include <fmt/printf.h>
@@ -160,6 +161,7 @@ void run() {
 	float t = glfwGetTime();
 
 	std::vector<Mesh const *> meshes;
+	std::unordered_map<Mesh const *, unsigned> buffers;
 	while (!glfwWindowShouldClose(window)) {
 		if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 			break;
@@ -207,10 +209,16 @@ void run() {
 		map.tryGetMeshes(meshes, eye_pos, 200.f);
 		float tt2 = glfwGetTime();
 		for (Mesh const *mesh: meshes) {
-			fn.VertexAttribPointer(p_location, 3, GL_FLOAT, false, sizeof(Vertex), &mesh->vertices[0].position);
-			fn.VertexAttribPointer(c_location, 4, GL_FLOAT, false, sizeof(Vertex), &mesh->vertices[0].color);
-			fn.VertexAttribIPointer(k_location, 1, GL_UNSIGNED_INT, sizeof(Vertex), &mesh->vertices[0].type);
-			fn.VertexAttribPointer(u_location, 2, GL_FLOAT, false, sizeof(Vertex), &mesh->vertices[0].uv);
+			auto &buf = buffers[mesh];
+			if (!buf) {
+				fn.CreateBuffers(1, &buf);
+				fn.NamedBufferStorage(buf, sizeof(Vertex) * mesh->vertices.size(), mesh->vertices.data(), 0);
+			}
+			fn.BindBuffer(GL_ARRAY_BUFFER, buf);
+			fn.VertexAttribPointer(p_location, 3, GL_FLOAT, false, sizeof(Vertex), reinterpret_cast<void *>(offsetof(Vertex, position)));
+			fn.VertexAttribPointer(c_location, 4, GL_FLOAT, false, sizeof(Vertex), reinterpret_cast<void *>(offsetof(Vertex, color)));
+			fn.VertexAttribIPointer(k_location, 1, GL_UNSIGNED_INT, sizeof(Vertex), reinterpret_cast<void *>(offsetof(Vertex, type)));
+			fn.VertexAttribPointer(u_location, 2, GL_FLOAT, false, sizeof(Vertex), reinterpret_cast<void *>(offsetof(Vertex, uv)));
 			fn.DrawArrays(GL_QUADS, 0, mesh->vertices.size());
 		}
 		glfwSwapBuffers(window);
