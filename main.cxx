@@ -62,6 +62,7 @@ long mesh_size = 0;
 int level = 0;
 static float yaw = 0.0f;
 static float pitch = 0.0f;
+static std::atomic<int> s;
 
 static Map map;
 static std::atomic<bool> do_run = {true};
@@ -77,6 +78,7 @@ void mapgenth() {
 				map.requestBlock({i, j, k});
 			}
 		fmt::printf("Layer %d generated. Time: mapgen: %.3f s, meshgen: %.3f s; mesh size: %d quads\n", sum, to_double(mapgen_time), to_double(meshgen_time), mesh_size);
+		s = sum;
 		sum++;
 		mapgen_time = {0, 0};
 		meshgen_time = {0, 0};
@@ -213,7 +215,7 @@ void run() {
 		}
 		glfwSwapBuffers(window);
 		glfwPollEvents();
-		fmt::printf("Frame time: %.1fms; mesh get time: %.1fms (%d meshes)\n", 1000.f * dt, 1000.f * (tt2 - tt1), meshes.size());
+		fmt::printf("Frame time: %.1fms; mesh get time: %.1fms (%d meshes, distance up to %d)\n", 1000.f * dt, 1000.f * (tt2 - tt1), meshes.size(), s * block_size);
 	}
 }
 
@@ -241,6 +243,7 @@ int main(int argc, char **argv) {
 // 	glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
 // 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
 // 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+	glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
 	glfwWindowHint(GLFW_DEPTH_BITS, 16);
 	glfwWindowHint(GLFW_SAMPLES, 4);
 	window = glfwCreateWindow(800, 600, "V_CORE", NULL, NULL);
