@@ -6,18 +6,18 @@
 SliceSet<> make_slices(VManip const &mapfrag, glm::ivec3 blockpos) {
 	SliceSet<> result;
 	std::memset(&result, -1, sizeof(result));
-	glm::ivec3 base = 16 * blockpos;
-	for (glm::ivec3 rel: space_range{glm::ivec3{0, 0, 0}, glm::ivec3{16, 16, 16}}) {
+	glm::ivec3 base = block_size * blockpos;
+	for (glm::ivec3 rel: space_range{glm::ivec3{0, 0, 0}, glm::ivec3{block_size, block_size, block_size}}) {
 		glm::ivec3 pos = base + rel;
 		content_t self = mapfrag.get(pos).content;
 		assert(self != CONTENT_IGNORE);
 		if (self == CONTENT_AIR)
 			continue;
-		if (mapfrag.get(pos + glm::ivec3{-1, 0, 0}).content == CONTENT_AIR) result.xn.at(15 - rel.x).get_rw(pack_xn(rel)) = self;
+		if (mapfrag.get(pos + glm::ivec3{-1, 0, 0}).content == CONTENT_AIR) result.xn.at(block_size - 1 - rel.x).get_rw(pack_xn(rel)) = self;
 		if (mapfrag.get(pos + glm::ivec3{ 1, 0, 0}).content == CONTENT_AIR) result.xp.at(rel.x).get_rw(pack_xp(rel)) = self;
-		if (mapfrag.get(pos + glm::ivec3{0, -1, 0}).content == CONTENT_AIR) result.yn.at(15 - rel.y).get_rw(pack_yn(rel)) = self;
+		if (mapfrag.get(pos + glm::ivec3{0, -1, 0}).content == CONTENT_AIR) result.yn.at(block_size - 1 - rel.y).get_rw(pack_yn(rel)) = self;
 		if (mapfrag.get(pos + glm::ivec3{0,  1, 0}).content == CONTENT_AIR) result.yp.at(rel.y).get_rw(pack_yp(rel)) = self;
-		if (mapfrag.get(pos + glm::ivec3{0, 0, -1}).content == CONTENT_AIR) result.zn.at(15 - rel.z).get_rw(pack_zn(rel)) = self;
+		if (mapfrag.get(pos + glm::ivec3{0, 0, -1}).content == CONTENT_AIR) result.zn.at(block_size - 1 - rel.z).get_rw(pack_zn(rel)) = self;
 		if (mapfrag.get(pos + glm::ivec3{0, 0,  1}).content == CONTENT_AIR) result.zp.at(rel.z).get_rw(pack_zp(rel)) = self;
 	}
 	return result;

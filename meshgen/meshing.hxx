@@ -23,7 +23,7 @@ void slice_to_mesh(std::vector<Vertex> &dest, Slice<level> const &slice, glm::iv
 template <int h_level, int v_level>
 auto make_mesh(SliceSet<h_level, v_level> const &slices, glm::ivec3 offset) {
 	auto result = std::make_unique<Mesh>();
-	result->vertices.reserve(4 * 3 * 16 * 16 * 17);
+	result->vertices.reserve(4 * 3 * block_size * block_size * (block_size + 1));
 	for (int index = 0; index < MAP_BLOCKSIZE >> v_level; index++) {
 		int op = (index + 1) << v_level;
 		int on = MAP_BLOCKSIZE - op;
