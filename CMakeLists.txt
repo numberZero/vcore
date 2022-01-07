@@ -16,12 +16,14 @@ set_target_properties(GLXX PROPERTIES
 
 add_executable(vcore
 	main.cxx
-# 	map/map.cxx
+	map/map.cxx
 # 	mapgen/heightmap.cxx
+	shader.cxx
 	util/io.cxx
 # 	util/perlin.cxx
 )
 
+include_directories(${CMAKE_SOURCE_DIR})
 target_include_directories(vcore PUBLIC ${CMAKE_SOURCE_DIR})
 
 target_compile_definitions(vcore PUBLIC

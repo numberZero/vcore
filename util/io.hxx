@@ -2,7 +2,6 @@
 #include <string>
 #include <vector>
 
-typedef unsigned char byte;
-typedef std::vector<byte> bytearray;
+using bytearray = std::vector<std::byte>;
 
 bytearray read_file(std::string const &filename);
