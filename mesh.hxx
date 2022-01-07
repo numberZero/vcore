@@ -6,9 +6,9 @@
 
 struct Vertex {
 	glm::vec3 position;
-	float brightness;
-	glm::vec3 color;
 	std::uint32_t type;
+	glm::vec3 color;
+	float brightness;
 	glm::vec2 uv;
 };
 

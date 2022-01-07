@@ -35,6 +35,8 @@ target_link_libraries(vcore PUBLIC
 	GLFW
 	GLM
 	GLXX
+	SDL2
+	SDL2_image
 	mapgen_minetest_v6
 	stdc++fs
 	Threads::Threads

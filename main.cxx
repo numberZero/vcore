@@ -14,6 +14,8 @@
 #include <gl++/c.hxx>
 #include <GLFW/glfw3.h>
 #include <glm/gtc/matrix_transform.hpp>
+#include <SDL2/SDL_surface.h>
+#include <SDL2/SDL_image.h>
 #include "shader.hxx"
 #include "time.hxx"
 #include "mesh.hxx"
@@ -81,6 +83,55 @@ void mapgenth() {
 	}
 }
 
+unsigned nodeTexture = 0;
+
+void loadTextures() {
+	static constexpr auto extensions = {"png", "jpg"};
+	static constexpr auto mip_levels = 10;
+	static constexpr auto texture_size = 1 << (mip_levels - 1);
+	static constexpr auto type_count = 16;
+	fn.CreateTextures(GL_TEXTURE_2D_ARRAY, 1, &nodeTexture);
+	fn.TextureParameteri(nodeTexture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	fn.TextureParameteri(nodeTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR);
+	fn.TextureStorage3D(nodeTexture, mip_levels, GL_RGBA8, texture_size, texture_size, type_count);
+	for (int k = 1; k < type_count; k++) {
+		SDL_Surface *image = nullptr;
+		for (auto &&ext: extensions) {
+			auto filename = app_root / fmt::sprintf("textures/%d.%s", k, ext);
+			image = IMG_Load(filename.c_str());
+			if (image)
+				break;
+		}
+		if (!image) {
+			fmt::printf("Can't load Image #%d: %s\n", k, SDL_GetError());
+			continue;
+		}
+		if (int err = SDL_LockSurface(image); err) {
+			fmt::printf("Can't lock surface of image #%d: %s\n", k, SDL_GetError());
+			continue;
+		}
+		if (image->w != texture_size || image->h != texture_size) {
+			fmt::printf("Wrong image #%d size: %dx%d instead of %d^2\n", k, image->w, image->h, texture_size);
+			goto unlock;
+		}
+		switch (image->format->BitsPerPixel) {
+			case 24:
+				fn.TextureSubImage3D(nodeTexture, 0, 0, 0, k, texture_size, texture_size, 1, GL_RGB, GL_UNSIGNED_BYTE, image->pixels);
+				break;
+			case 32:
+				fn.TextureSubImage3D(nodeTexture, 0, 0, 0, k, texture_size, texture_size, 1, GL_RGBA, GL_UNSIGNED_BYTE, image->pixels);
+				break;
+			default:
+				fmt::printf("Unsupported image #%d BPP: %d\n", k, image->format->BitsPerPixel);
+				goto unlock;
+		}
+	unlock:
+		SDL_UnlockSurface(image);
+		SDL_FreeSurface(image);
+	}
+	fn.GenerateTextureMipmap(nodeTexture);
+}
+
 void run() {
 	auto vert_shader = read_file(app_root / "shaders/land.vert");
 	auto frag_shader = read_file(app_root / "shaders/land.frag");
@@ -90,7 +141,12 @@ void run() {
 	});
 	int p_location =  fn.GetAttribLocation(prog, "position");
 	int c_location =  fn.GetAttribLocation(prog, "color");
+	int u_location =  fn.GetAttribLocation(prog, "uv");
+	int k_location =  fn.GetAttribLocation(prog, "type");
 	int m_location = fn.GetUniformLocation(prog, "m");
+	int t_location = fn.GetUniformLocation(prog, "tex");
+
+	loadTextures();
 
 	fn.ClearColor(0.2, 0.1, 0.3, 1.0);
 	int max_v, max_i;
@@ -137,18 +193,27 @@ void run() {
 		fn.Enable(GL_DEPTH_TEST);
 		fn.Enable(GL_CULL_FACE);
 		fn.Clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		fn.UniformMatrix4fv(m_location, 1, GL_FALSE, &m_render[0][0]);
 		fn.UseProgram(prog);
-		fn.EnableVertexAttribArray(0);
-		fn.EnableVertexAttribArray(1);
+		fn.UniformMatrix4fv(m_location, 1, GL_FALSE, &m_render[0][0]);
+		fn.Uniform1i(t_location, 0);
+		fn.BindTextureUnit(0, nodeTexture);
+		fn.EnableVertexAttribArray(p_location);
+		fn.EnableVertexAttribArray(c_location);
+		fn.EnableVertexAttribArray(k_location);
+		fn.EnableVertexAttribArray(u_location);
+		float tt1 = glfwGetTime();
 		map.tryGetMeshes(meshes, eye_pos, 200.f);
+		float tt2 = glfwGetTime();
 		for (Mesh const *mesh: meshes) {
 			fn.VertexAttribPointer(p_location, 3, GL_FLOAT, false, sizeof(Vertex), &mesh->vertices[0].position);
-			fn.VertexAttribPointer(c_location, 3, GL_FLOAT, false, sizeof(Vertex), &mesh->vertices[0].color);
+			fn.VertexAttribPointer(c_location, 4, GL_FLOAT, false, sizeof(Vertex), &mesh->vertices[0].color);
+			fn.VertexAttribIPointer(k_location, 1, GL_UNSIGNED_INT, sizeof(Vertex), &mesh->vertices[0].type);
+			fn.VertexAttribPointer(u_location, 2, GL_FLOAT, false, sizeof(Vertex), &mesh->vertices[0].uv);
 			fn.DrawArrays(GL_QUADS, 0, mesh->vertices.size());
 		}
 		glfwSwapBuffers(window);
 		glfwPollEvents();
+		fmt::printf("Frame time: %.1fms; mesh get time: %.1fms (%d meshes)\n", 1000.f * dt, 1000.f * (tt2 - tt1), meshes.size());
 	}
 }
 
@@ -170,6 +235,8 @@ int main(int argc, char **argv) {
 		fprintf(stderr, "Can't initialize GLFW");
 		goto err_early;
 	}
+
+	IMG_Init(IMG_INIT_JPG | IMG_INIT_PNG);
 
 // 	glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
 // 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);

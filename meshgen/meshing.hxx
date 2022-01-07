@@ -7,16 +7,22 @@ template <int level, glm::ivec3 transform(glm::ivec2)>
 void slice_to_mesh(std::vector<Vertex> &dest, Slice<level> const &slice, glm::ivec3 base, float brightness = 1.0f) {
 	extern std::array<glm::vec3, 18> const content_colors;
 	int scale = 1 << level;
+	float inv_scale = 1.0f / slice.size * block_size / 16.0f;
 	for (int j = 0; j < slice.size; j++)
 	for (int i = 0; i < slice.size; i++) {
 		content_t self = slice.get_r({i, j});
 		if (self == CONTENT_IGNORE)
 			continue;
 		auto color = brightness * content_colors.at(self);
-		dest.push_back({base + scale * transform({i    , j    }), brightness, color, self, {0.0f, 0.0f}});
-		dest.push_back({base + scale * transform({i + 1, j    }), brightness, color, self, {1.0f, 0.0f}});
-		dest.push_back({base + scale * transform({i + 1, j + 1}), brightness, color, self, {1.0f, 1.0f}});
-		dest.push_back({base + scale * transform({i    , j + 1}), brightness, color, self, {0.0f, 1.0f}});
+		auto make_vertex = [&] (int u, int v) {
+			auto ipos = glm::ivec2{i + u, j + v};
+			auto uv = inv_scale * glm::vec2(ipos);
+			dest.push_back({base + scale * transform(ipos), self, color, brightness, uv});
+		};
+		make_vertex(0, 0);
+		make_vertex(1, 0);
+		make_vertex(1, 1);
+		make_vertex(0, 1);
 	}
 }
 
