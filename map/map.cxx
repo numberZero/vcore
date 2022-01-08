@@ -120,12 +120,12 @@ void Map::requestBlock(glm::ivec3 blockpos) {
 		return; // generated already
 	}
 
-	MMVManip mapfrag{base, base + (5 - 1)};
+	MMVManip mapfrag{base - CHUNK_PADDING_BLOCKS, base + (CHUNK_SIZE_BLOCKS + CHUNK_PADDING_BLOCKS - 1)};
 	BlockMakeData bmd;
 	bmd.seed = params.seed;
 	bmd.vmanip = &mapfrag;
 	bmd.blockpos_min = vcore_to_mt(base);
-	bmd.blockpos_max = vcore_to_mt(base + (5 - 1));
+	bmd.blockpos_max = vcore_to_mt(base + (CHUNK_SIZE_BLOCKS - 1));
 	timespec t0 = thread_cpu_clock();
 	mapgen.makeChunk(&bmd);
 	timespec t1 = thread_cpu_clock();
@@ -135,10 +135,10 @@ void Map::requestBlock(glm::ivec3 blockpos) {
 
 	{ // synchronizing with the main thread
 		std::lock_guard<std::mutex> guard(mtx);
-		for (auto pos: space_range{base, base + 5})
+		for (auto pos: space_range{base, base + CHUNK_SIZE_BLOCKS})
 			pushBlock(mapfrag.takeBlock(pos));
 	}
-	for (auto pos: space_range{base - 1, base + 6})
+	for (auto pos: space_range{base - 1, base + CHUNK_SIZE_BLOCKS + 1})
 		generateMesh(pos);
 }
 

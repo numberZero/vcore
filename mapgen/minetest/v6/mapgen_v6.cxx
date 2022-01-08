@@ -93,9 +93,9 @@ MapgenV6::MapgenV6(MapgenV6Params *params, MapV6Params map_params)
 	noise_mud            = new Noise(&params->np_mud,            seed, csize.x, csize.y);
 	noise_beach          = new Noise(&params->np_beach,          seed, csize.x, csize.y);
 	noise_biome          = new Noise(&params->np_biome,          seed,
-			csize.x + 2 * MAP_BLOCKSIZE, csize.y + 2 * MAP_BLOCKSIZE);
+			csize.x + 2 * CHUNK_PADDING, csize.y + 2 * CHUNK_PADDING);
 	noise_humidity       = new Noise(&params->np_humidity,       seed,
-			csize.x + 2 * MAP_BLOCKSIZE, csize.y + 2 * MAP_BLOCKSIZE);
+			csize.x + 2 * CHUNK_PADDING, csize.y + 2 * CHUNK_PADDING);
 
 	c = map_params;
 
@@ -291,7 +291,7 @@ bool MapgenV6::getHaveBeach(v2s16 p)
 
 BiomeV6Type MapgenV6::getBiome(v2s16 p)
 {
-	int index = (p.y - full_node_min.z) * (ystride + 2 * MAP_BLOCKSIZE)
+	int index = (p.y - full_node_min.z) * (ystride + 2 * CHUNK_PADDING)
 			+ (p.x - full_node_min.x);
 	return getBiome(index, p);
 }
@@ -304,7 +304,7 @@ float MapgenV6::getHumidity(v2s16 p)
 		seed+72384, 4, 0.66);
 	noise = (noise + 1.0)/2.0;*/
 
-	int index = (p.y - full_node_min.z) * (ystride + 2 * MAP_BLOCKSIZE)
+	int index = (p.y - full_node_min.z) * (ystride + 2 * CHUNK_PADDING)
 			+ (p.x - full_node_min.x);
 	float noise = noise_humidity->result[index];
 
@@ -444,19 +444,17 @@ void MapgenV6::makeChunk(BlockMakeData *data)
 
 	// Area of central chunk
 	node_min = blockpos_min * MAP_BLOCKSIZE;
-	node_max = (blockpos_max + v3s16(1, 1, 1)) * MAP_BLOCKSIZE - v3s16(1, 1, 1);
+	node_max = (blockpos_max + 1) * MAP_BLOCKSIZE - 1;
 
 	// Full allocated area
-	full_node_min = node_min;
-	full_node_max = node_max;
-// 	full_node_min = (blockpos_min - 1) * MAP_BLOCKSIZE;
-// 	full_node_max = (blockpos_max + 2) * MAP_BLOCKSIZE - v3s16(1, 1, 1);
+	full_node_min = node_min - CHUNK_PADDING;
+	full_node_max = node_max + CHUNK_PADDING;
 
 	central_area_size = node_max - node_min + v3s16(1, 1, 1);
 	assert(central_area_size.x == central_area_size.z);
 
 	// Create a block-specific seed
-	blockseed = get_blockseed(data->seed, full_node_min);
+	blockseed = get_blockseed(data->seed, node_min - MAP_BLOCKSIZE);
 
 	// Make some noise
 	calculateNoise();

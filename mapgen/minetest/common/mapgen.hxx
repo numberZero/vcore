@@ -33,6 +33,10 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 // #include "util/container.h"
 
 static constexpr int MAX_MAP_GENERATION_LIMIT = 31000;
+static constexpr int CHUNK_SIZE_BLOCKS = 5;
+static constexpr int CHUNK_SIZE = CHUNK_SIZE_BLOCKS * MAP_BLOCKSIZE;
+static constexpr int CHUNK_PADDING = 0;
+static constexpr int CHUNK_PADDING_BLOCKS = (CHUNK_PADDING + MAP_BLOCKSIZE - 1) / MAP_BLOCKSIZE;
 
 /////////////////// Mapgen flags
 #define MG_TREES       0x01  // Deprecated. Moved into mgv6 flags
