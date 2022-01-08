@@ -60,6 +60,14 @@ FlagDesc flagdesc_mapgen_v6[] = {
 MapgenV6::MapgenV6(MapgenV6Params *params, MapV6Params map_params)
 	: Mapgen(MAPGEN_V6, params, nullptr)
 {
+	water_level = 1;
+
+	mapgen_limit = params->mapgen_limit;
+	flags = params->flags;
+	csize = glm::ivec3(1, 1, 1) * (params->chunksize * MAP_BLOCKSIZE);
+
+	seed = (s32)params->seed;
+
 	ystride = csize.x;
 
 	heightmap = new s16[csize.x * csize.z];

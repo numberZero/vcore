@@ -86,17 +86,7 @@ void Map::requestBlock(glm::ivec3 blockpos) {
 		return; // generated already
 
 	static MapgenV6Params params;
-	params.np_terrain_base.seed = 33;
-	params.np_terrain_higher.seed = 2;
-	params.np_steepness.seed = 3;
-	params.np_height_select.seed = 4;
-	params.np_mud.seed = 5;
-	params.np_beach.seed = 6;
-	params.np_biome.seed = 7;
-	params.np_cave.seed = 8;
-	params.np_humidity.seed = 9;
-	params.np_trees.seed = 10;
-	params.np_apple_trees.seed = 11;
+	params.seed = 666;
 	static MapV6Params map_params;
 	map_params.stone = 1;
 	map_params.dirt = 2;
@@ -132,7 +122,7 @@ void Map::requestBlock(glm::ivec3 blockpos) {
 
 	MMVManip mapfrag{base, base + (5 - 1)};
 	BlockMakeData bmd;
-	bmd.seed = 666;
+	bmd.seed = params.seed;
 	bmd.vmanip = &mapfrag;
 	bmd.blockpos_min = vcore_to_mt(base);
 	bmd.blockpos_max = vcore_to_mt(base + (5 - 1));
