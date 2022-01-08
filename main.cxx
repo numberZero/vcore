@@ -255,9 +255,11 @@ static void on_mouse_move(GLFWwindow *window, double xpos, double ypos) {
 }
 
 int main(int argc, char **argv) {
-	fs::path self{fs::absolute(argv[0])};
+	fs::path self{fs::canonical(argv[0])};
+	fmt::printf("Self: %s\n", self.native());
 	if (self.has_parent_path())
 		app_root = self.parent_path().parent_path();
+	fmt::printf("Root: %s\n", app_root.native());
 	int result = EXIT_FAILURE;
 	if (!glfwInit()) {
 		fprintf(stderr, "Can't initialize GLFW");
