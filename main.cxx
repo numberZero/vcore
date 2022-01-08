@@ -24,6 +24,7 @@
 #include "util/io.hxx"
 #include "cache.hxx"
 #include "terminal/gltty.hxx"
+#include "timer.hxx"
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include "glm/gtx/euler_angles.hpp"
@@ -70,6 +71,7 @@ static Map map;
 static std::atomic<bool> do_run = {true};
 
 static GLTTY tty;
+static FrameTimer timer;
 
 void mapgenth() {
 	unsigned sum = 0;
@@ -163,19 +165,16 @@ void run() {
 	tty.init();
 
 	glm::vec3 pos{0.0f, 0.0f, level};
-	float t = glfwGetTime();
-
 	std::vector<Mesh const *> meshes;
 	std::unordered_map<Mesh const *, unsigned> buffers;
+	timer.start();
 	while (!glfwWindowShouldClose(window)) {
 		if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 			break;
-		float t2 = glfwGetTime();
-		float dt = t2 - t;
-		t = t2;
+		timer.begin_frame();
 
 		tty.clear();
-		tty.println("Frame time: {:.1f}ms", 1000.f * dt);
+		tty.println("FPS: {:.0f}", timer.fps());
 
 		int w, h;
 		glfwGetWindowSize(window, &w, &h);
@@ -194,7 +193,7 @@ void run() {
 			v.z += 1.0;
 		if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
 			v.z -= 1.0;
-		pos += dt * 10.f * glm::orientate3(-yaw) * v;
+		pos += timer.dt() * 10.f * glm::orientate3(-yaw) * v;
 
 		float aspect = 1.f * w / h;
 		float eye_level = 1.75f;
@@ -217,9 +216,7 @@ void run() {
 		fn.EnableVertexAttribArray(c_location);
 		fn.EnableVertexAttribArray(k_location);
 		fn.EnableVertexAttribArray(u_location);
-		float tt1 = glfwGetTime();
 		map.tryGetMeshes(meshes, eye_pos, 200.f);
-		float tt2 = glfwGetTime();
 		for (Mesh const *mesh: meshes) {
 			auto &buf = buffers[mesh];
 			if (!buf) {
@@ -241,7 +238,6 @@ void run() {
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
-		fmt::printf("Frame time: %.1fms; mesh get time: %.1fms (%d meshes, distance up to %d)\n", 1000.f * dt, 1000.f * (tt2 - tt1), meshes.size(), s * block_size);
 	}
 }
 
