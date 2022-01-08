@@ -38,30 +38,18 @@ void Map::generateMesh(glm::ivec3 blockpos) {
 	auto mesh0 = make_mesh(slices0, pos);
 	if (mesh0->vertices.empty())
 		return; // don’t need to store it
-	auto slices1 = hmerge_slices(flatten_slices(slices0));
-	auto mesh1 = make_mesh(slices1, pos);
-	auto slices2 = hmerge_slices(flatten_slices(slices1));
-	auto mesh2 = make_mesh(slices2, pos);
-	auto slices3 = hmerge_slices(flatten_slices(slices2));
-	auto mesh3 = make_mesh(slices3, pos);
-	auto slices4 = hmerge_slices(flatten_slices(slices3));
-	auto mesh4 = make_mesh(slices4, pos);
 	timespec t1 = thread_cpu_clock();
 	meshgen_time = meshgen_time + (t1 - t0);
 
 	guard.lock();
-	if (data[blockpos].mesh[0]) {
+	if (data[blockpos].mesh) {
 		guard.unlock();
 		fmt::printf("Warning: not replacing already generated mesh for %d, %d, %d\n", blockpos.x, blockpos.y, blockpos.z);
 // 		fmt::printf("Warning: not replacing already generated mesh for %d\n", blockpos);
 		return;
 	}
-	data[blockpos].mesh[0] = std::move(mesh0);
-	data[blockpos].mesh[1] = std::move(mesh1);
-	data[blockpos].mesh[2] = std::move(mesh2);
-	data[blockpos].mesh[3] = std::move(mesh3);
-	data[blockpos].mesh[4] = std::move(mesh4);
-	queue.push_back(data[blockpos].mesh[0].get());
+	data[blockpos].mesh = std::move(mesh0);
+	queue.push_back(data[blockpos].mesh.get());
 	guard.unlock();
 }
 

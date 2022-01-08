@@ -89,7 +89,7 @@ public:
 
 struct ClientMapBlock {
 	std::unique_ptr<Block> content;
-	std::array<std::unique_ptr<Mesh>, 5> mesh;
+	std::unique_ptr<Mesh> mesh;
 	int neighbours = 0;
 };
 
