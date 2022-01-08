@@ -76,13 +76,14 @@ static FrameTimer timer;
 void mapgenth() {
 	unsigned sum = 0;
 	while (sum <= 100) {
-		for (int i = 0; i <= sum; i++)
-			for (int j = 0; j <= sum - i; j++) {
-				int k = sum - i - j;
+		for (int i = 0; i <= sum; i++) {
+			int j = sum - i;
+			for (int k = -1; k <= 10; k++) {
 				if (!do_run)
 					return;
 				map.requestBlock({i, j, k});
 			}
+		}
 		fmt::printf("Layer %d generated. Time: mapgen: %.3f s, meshgen: %.3f s; mesh size: %d quads\n", sum, to_double(mapgen_time), to_double(meshgen_time), mesh_size);
 		r = sum;
 		s = map.size();
