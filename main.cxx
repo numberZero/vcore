@@ -65,7 +65,7 @@ long mesh_size = 0;
 int level = 0;
 static float yaw = 0.0f;
 static float pitch = 0.0f;
-static std::atomic<int> s;
+static std::atomic<int> r, s;
 
 static Map map;
 static std::atomic<bool> do_run = {true};
@@ -84,7 +84,8 @@ void mapgenth() {
 				map.requestBlock({i, j, k});
 			}
 		fmt::printf("Layer %d generated. Time: mapgen: %.3f s, meshgen: %.3f s; mesh size: %d quads\n", sum, to_double(mapgen_time), to_double(meshgen_time), mesh_size);
-		s = sum;
+		r = sum;
+		s = map.size();
 		sum++;
 		mapgen_time = {0, 0};
 		meshgen_time = {0, 0};
@@ -230,6 +231,8 @@ void run() {
 			fn.VertexAttribPointer(u_location, 2, GL_FLOAT, false, sizeof(Vertex), reinterpret_cast<void *>(offsetof(Vertex, uv)));
 			fn.DrawArrays(GL_QUADS, 0, mesh->vertices.size());
 		}
+
+		tty.println("{} blocks, {} meshes, distance up to {}", s, meshes.size(), r * block_size);
 
 		fn.Disable(GL_DEPTH_TEST);
 		fn.Enable(GL_BLEND);

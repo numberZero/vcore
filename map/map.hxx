@@ -108,4 +108,6 @@ public:
 
 	std::vector<Mesh const *> getMeshes(glm::vec3 pos, float mip_range) const;
 	bool tryGetMeshes(std::vector<Mesh const *> &to, glm::vec3 pos, float mip_range) const;
+
+	std::size_t size() const { return data.size(); }
 };
