@@ -19,6 +19,8 @@ add_executable(vcore
 	map/map.cxx
 # 	mapgen/heightmap.cxx
 	shader.cxx
+	terminal/ascii.c
+	terminal/gltty.cxx
 	util/io.cxx
 # 	util/perlin.cxx
 )

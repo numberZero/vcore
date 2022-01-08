@@ -23,6 +23,7 @@
 #include "map/map.hxx"
 #include "util/io.hxx"
 #include "cache.hxx"
+#include "terminal/gltty.hxx"
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include "glm/gtx/euler_angles.hpp"
@@ -67,6 +68,8 @@ static std::atomic<int> s;
 
 static Map map;
 static std::atomic<bool> do_run = {true};
+
+static GLTTY tty;
 
 void mapgenth() {
 	unsigned sum = 0;
@@ -157,6 +160,8 @@ void run() {
 	fn.GetIntegerv(GL_MAX_ELEMENTS_INDICES, &max_i);
 	fmt::printf("Vertex limit: %d\nIndex limit: %d\n", max_v, max_i);
 
+	tty.init();
+
 	glm::vec3 pos{0.0f, 0.0f, level};
 	float t = glfwGetTime();
 
@@ -168,9 +173,14 @@ void run() {
 		float t2 = glfwGetTime();
 		float dt = t2 - t;
 		t = t2;
+
+		tty.clear();
+		tty.println("Frame time: {:.1f}ms", 1000.f * dt);
+
 		int w, h;
 		glfwGetWindowSize(window, &w, &h);
 		fn.Viewport(0, 0, w, h);
+
 		glm::vec3 v{0.0f, 0.0f, 0.0f};
 		if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
 			v.y += 1.0;
@@ -185,6 +195,7 @@ void run() {
 		if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
 			v.z -= 1.0;
 		pos += dt * 10.f * glm::orientate3(-yaw) * v;
+
 		float aspect = 1.f * w / h;
 		float eye_level = 1.75f;
 		glm::vec3 eye_pos = pos + glm::vec3{0.0f, 0.0f, eye_level};
@@ -193,7 +204,8 @@ void run() {
 		m_proj[2] = -m_proj[2];
 		std::swap(m_proj[1], m_proj[2]);
 		glm::mat4 m_render = m_proj * m_view;
-		fn.Enable(GL_DEPTH);
+
+		fn.Disable(GL_BLEND);
 		fn.Enable(GL_DEPTH_TEST);
 		fn.Enable(GL_CULL_FACE);
 		fn.Clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -221,6 +233,12 @@ void run() {
 			fn.VertexAttribPointer(u_location, 2, GL_FLOAT, false, sizeof(Vertex), reinterpret_cast<void *>(offsetof(Vertex, uv)));
 			fn.DrawArrays(GL_QUADS, 0, mesh->vertices.size());
 		}
+
+		fn.Disable(GL_DEPTH_TEST);
+		fn.Enable(GL_BLEND);
+		fn.BlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+		tty.render();
+
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 		fmt::printf("Frame time: %.1fms; mesh get time: %.1fms (%d meshes, distance up to %d)\n", 1000.f * dt, 1000.f * (tt2 - tt1), meshes.size(), s * block_size);
