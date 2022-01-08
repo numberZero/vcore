@@ -55,9 +55,6 @@ extern std::array<glm::vec3, 18> const content_colors = {{
 	[17] = {0.0f, 0.0f, 0.0f}, // stair_desert_stone
 }};
 
-int plain_shader = 0;
-int map_shader = 0;
-
 timespec mapgen_time = {0, 0};
 timespec meshgen_time = {0, 0};
 long mesh_size = 0;
@@ -65,6 +62,9 @@ long mesh_size = 0;
 int level = 0;
 static float yaw = 0.0f;
 static float pitch = 0.0f;
+static bool v_sync = true;
+static bool fast = false;
+static bool mouse_control = true;
 static std::atomic<int> r, s;
 
 static Map map;
@@ -178,7 +178,9 @@ void run() {
 		timer.begin_frame();
 
 		tty.clear();
-		tty.println("FPS: {:.0f}", timer.fps());
+		tty.println("FPS: {:.0f} (v-sync {})", timer.fps(), v_sync ? "enabled" : "disabled");
+		tty.println("Position: {:.1f}, {:.1f}, {:.1f}", pos.x, pos.y, pos.z);
+		tty.println("Mouse control: {}", mouse_control ? "enabled" : "disabled");
 
 		int w, h;
 		glfwGetWindowSize(window, &w, &h);
@@ -197,7 +199,7 @@ void run() {
 			v.z += 1.0;
 		if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
 			v.z -= 1.0;
-		pos += timer.dt() * 10.f * glm::orientate3(-yaw) * v;
+		pos += timer.dt() * (fast ? 100.f : 10.f) * glm::orientate3(-yaw) * v;
 
 		float aspect = 1.f * w / h;
 		float eye_level = 1.75f;
@@ -248,12 +250,42 @@ void run() {
 }
 
 static void on_mouse_move(GLFWwindow *window, double xpos, double ypos) {
-	static double base_xpos = xpos;
-	static double base_ypos = ypos;
-	xpos -= base_xpos;
-	ypos -= base_ypos;
+	static bool is_okay = false;
+	static glm::vec2 base_pos;
+	if (!mouse_control) {
+		is_okay = false;
+		return;
+	}
+	if (!is_okay) {
+		base_pos = {xpos, ypos};
+		is_okay = true;
+	}
+	xpos -= base_pos.x;
+	ypos -= base_pos.y;
 	yaw = xpos * 1e-2;
 	pitch = ypos * 1e-2;
+}
+
+static void on_key(GLFWwindow *window, int key, int scancode, int action, int mods) {
+	if (action != GLFW_PRESS)
+		return;
+	switch (key) {
+		case GLFW_KEY_C:
+			tty.capitalize = !tty.capitalize;
+			break;
+		case GLFW_KEY_V:
+			v_sync = !v_sync;
+			glfwSwapInterval(v_sync);
+			break;
+		case GLFW_KEY_J:
+			fast = !fast;
+			break;
+		case GLFW_KEY_M:
+		case GLFW_KEY_TAB:
+			mouse_control = !mouse_control;
+			glfwSetInputMode(window, GLFW_CURSOR, mouse_control ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
+			break;
+	}
 }
 
 int main(int argc, char **argv) {
@@ -286,6 +318,7 @@ int main(int argc, char **argv) {
 	glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
 #endif
 	glfwSetCursorPosCallback(window, on_mouse_move);
+	glfwSetKeyCallback(window, on_key);
 
 	glfwMakeContextCurrent(window);
 	loadAll(glfwGetProcAddress);
