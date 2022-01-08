@@ -166,7 +166,9 @@ void run() {
 
 	tty.init();
 
-	glm::vec3 pos{0.0f, 0.0f, level};
+	glm::vec3 pos{0.f, 0.f, level};
+	if (level >= 10000)
+		pos = {44.f, -6.f, 41.f};
 	std::vector<Mesh const *> meshes;
 	std::unordered_map<Mesh const *, unsigned> buffers;
 	timer.start();
