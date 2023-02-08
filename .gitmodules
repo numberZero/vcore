@@ -1,0 +1,4 @@
+[submodule "gl++"]
+	path = gl++
+	url = https://github.com/numberZero/glxx.git
+	branch = own_loader

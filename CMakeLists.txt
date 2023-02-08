@@ -8,11 +8,8 @@ find_package(Threads REQUIRED)
 find_package(GLFW REQUIRED)
 find_package(GLM REQUIRED)
 
-add_library(GLXX IMPORTED STATIC)
-set_target_properties(GLXX PROPERTIES
-	IMPORTED_LOCATION "${CMAKE_SOURCE_DIR}/../gl++/build/libgl++.a"
-	INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/../"
-)
+add_subdirectory(gl++)
+add_library(GLXX ALIAS gl++)
 
 add_executable(vcore
 	main.cxx
