@@ -22,7 +22,6 @@
 #include "mesh.hxx"
 #include "map/map.hxx"
 #include "util/io.hxx"
-#include "cache.hxx"
 #include "terminal/gltty.hxx"
 #include "timer.hxx"
 

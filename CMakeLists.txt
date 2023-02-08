@@ -46,4 +46,3 @@ target_link_libraries(vcore PUBLIC
 )
 
 add_subdirectory(mapgen/minetest/)
-add_subdirectory(test/)
